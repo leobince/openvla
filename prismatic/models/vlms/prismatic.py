@@ -26,6 +26,10 @@ from prismatic.models.backbones.vision import VisionBackbone
 from prismatic.models.vlms.base_vlm import VLM
 from prismatic.overwatch import initialize_overwatch
 from prismatic.util.nn_utils import FusedMLPProjector, LinearProjector, MLPProjector
+from transformers.models.idefics2.configuration_idefics2 import Idefics2Config
+from transformers.models.idefics2.modeling_idefics2 import Idefics2Connector
+import torch.nn as nn
+from einops import rearrange
 
 from ...util.utils import load_statedict
 
@@ -35,6 +39,46 @@ overwatch = initialize_overwatch(__name__)
 
 # HuggingFace Default / LLaMa-2 IGNORE_INDEX (for labels)
 IGNORE_INDEX = -100
+
+
+class PRProjector(nn.Module):
+    def __init__(self, vision_dim: int, llm_dim: int, mlp_type: str = "gelu-mlp", device=None) -> None:
+        super().__init__()
+        self.device = device  # Store device
+        vision_config = {"hidden_size": 2176}
+        text_config = {"hidden_size": 2048}
+        self.config = Idefics2Config(vision_config = vision_config, text_config = text_config)
+        self.connector = Idefics2Connector(self.config).to(self.device)  # Ensure connector is on the correct device
+
+        if mlp_type == "gelu-mlp":
+            self.projector = nn.Sequential(
+                nn.Linear(vision_dim, llm_dim, bias=True),
+                nn.GELU(),
+                nn.Linear(llm_dim, llm_dim, bias=True),
+            )
+        else:
+            raise ValueError(f"Projector with `{mlp_type = }` is not supported!")
+
+        self.projector = self.projector.to(device)  # Move projector to specified device
+
+    def project(self, img_patches: torch.Tensor) -> torch.Tensor:
+
+        patch_attention_mask = torch.ones(img_patches.shape[:2], dtype=torch.float32,device=self.device)
+        img_patches = self.connector(img_patches, attention_mask=patch_attention_mask)
+        return img_patches
+    
+    def forward(self, img_patches: torch.Tensor) -> torch.Tensor:
+
+        #add the following line when using vision_backbone_id = "crop_dinosiglip-vit" & model.arch_specifier = "pr" 
+        img_patches = rearrange(img_patches, 'batch (crop token) dim -> (batch crop) token dim', crop=5)
+        
+        processed_img_patches = self.project(img_patches)
+        
+        #processed_img_patches =  torch.Size([15, 64, 4096])
+        result = rearrange(processed_img_patches, '(batch crop) token dim -> batch (crop token) dim', crop=5)
+        
+        return result
+    
 
 
 class PrismaticVLM(VLM):

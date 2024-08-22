@@ -108,7 +108,7 @@ class TimmViTBackbone(VisionBackbone, ABC):
         # Initialize Featurizer (ViT) by downloading from HF / TIMM Hub if necessary
         if self.override_act_layer is None:
             self.featurizer: VisionTransformer = timm.create_model(
-                self.timm_path_or_url, pretrained=True, num_classes=0, img_size=self.default_image_size
+                self.timm_path_or_url, pretrained=False, num_classes=0, img_size=self.default_image_size
             )
         else:
             self.featurizer: VisionTransformer = timm.create_model(
