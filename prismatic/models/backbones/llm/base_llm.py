@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
 
-from ..jetmoe_project import JetMoEConfig, JetMoEForCausalLM
+from ..jetmoe_project import JetMoEConfig_bubble, JetMoEForCausalLM
 from ..gemmamoe_project import GemmaMoEConfig
 # === Abstract Base Class for arbitrary HF LLM Backbones ===
 class LLMBackbone(nn.Module, ABC):
@@ -146,7 +146,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
             if os.path.isdir(hf_hub_path):
                 
                 if llm_backbone_id == 'jetmoe-8b':
-                    AutoConfig.register(llm_backbone_id, JetMoEConfig)
+                    AutoConfig.register("jetmoe-bubble", JetMoEConfig_bubble)
                     llm_config = AutoConfig.from_pretrained(hf_hub_path)
                 elif llm_backbone_id == "gemmamoe":
                     AutoConfig.register(llm_backbone_id, GemmaMoEConfig)

@@ -16,7 +16,7 @@ export NCCL_IB_TC=160
 export NCCL_PXN_DISABLE=0
 export NCCL_IB_TIMEOUT=22
 export PYTHONPATH=/mnt/csp/mmvision/home/lwh/openvla:$PYTHONPATH
-torchrun --standalone --nnodes 2 --nproc-per-node 8 /mnt/csp/mmvision/home/lwh/openvla/scripts/pretrain.py \
+torchrun --standalone --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=TRAIN_LLAVA-master-0 --master_port=23456 /mnt/csp/mmvision/home/lwh/openvla/scripts/pretrain.py \
   --model.type "gemmamoe-dinosiglip-224px" \
   --dataset.type "llava_more" \
   --stage "finetune" \
@@ -26,3 +26,4 @@ torchrun --standalone --nnodes 2 --nproc-per-node 8 /mnt/csp/mmvision/home/lwh/o
   --continue_from_checkpoint False \
   --continue_step 0 \
   --model.finetune_per_device_batch_size 2 \
+

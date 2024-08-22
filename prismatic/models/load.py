@@ -56,6 +56,7 @@ def load(
     hf_token: Optional[str] = None,
     cache_dir: Optional[Union[str, Path]] = None,
     load_for_training: bool = False,
+    llm_load_weight:bool = False,
 ) -> PrismaticVLM:
     """Loads a pretrained PrismaticVLM from either local disk or the HuggingFace Hub."""
     if os.path.isdir(model_id_or_path):
@@ -63,6 +64,11 @@ def load(
 
         # Get paths for `config.json` and pretrained checkpoint
         config_json, checkpoint_pt = run_dir / "config.json", run_dir / "checkpoints" / "latest-checkpoint.pt"
+        assert config_json.exists(), f"Missing `config.json` for `{run_dir = }`"
+        assert checkpoint_pt.exists(), f"Missing checkpoint for `{run_dir = }`"
+    elif os.path.isfile(model_id_or_path):
+        overwatch.info(f"Loading from local path `{(run_dir := os.path.dirname(os.path.dirname(model_id_or_path)))}`")
+        config_json, checkpoint_pt = Path(os.path.join(run_dir, "config.json")), Path(model_id_or_path)
         assert config_json.exists(), f"Missing `config.json` for `{run_dir = }`"
         assert checkpoint_pt.exists(), f"Missing checkpoint for `{run_dir = }`"
     else:
@@ -103,8 +109,9 @@ def load(
         model_cfg["llm_backbone_id"],
         llm_max_length=model_cfg.get("llm_max_length", 2048),
         hf_token=hf_token,
-        # inference_mode=not load_for_training,
-        inference_mode=True
+        inference_mode=not llm_load_weight,
+        
+
     )
 
     # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)

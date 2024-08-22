@@ -62,11 +62,40 @@ class VLAConfig(ChoiceRegistry):
 
 # = [8 GPU] Fast Iteration =>> SigLIP 224px + Bridge =
 @dataclass
-class Exp_SigLIP_224px_Bridge(VLAConfig):
-    vla_id: str = "siglip-224px+mx-bridge"
-    base_vlm: Union[str, Path] = "siglip-224px+7b"
+class Jetmoe_SigLIP_224px_Bridge(VLAConfig):
+    vla_id: str = "jetmoe-siglip-224px+mx-bridge"
+    base_vlm: Union[str, Path] = "jetmoe-dinosiglip-224px"
 
     freeze_vision_backbone: bool = False
+    freeze_llm_backbone: bool = False
+    unfreeze_last_llm_layer: bool = False
+
+    # Data Mixture Parameters
+    data_mix: str = "fractal20220817_data"
+    shuffle_buffer_size: int = 256_000
+
+    # Optimization Parameters
+    epochs: int = 10
+    max_steps: Optional[int] = None
+
+    expected_world_size: int = 8
+    global_batch_size: int = 256
+    per_device_batch_size: int = 32
+
+    learning_rate: float = 2e-5
+    weight_decay: float = 0.0
+    max_grad_norm: float = 1.0
+    lr_scheduler_type: str = "constant"
+    warmup_ratio: float = 0.0
+
+    train_strategy: str = "fsdp-full-shard"
+
+@dataclass
+class Exp_SigLIP_224px_Bridge(VLAConfig):
+    vla_id: str = "siglip-224px+mx-bridge"
+    base_vlm: Union[str, Path] = "jetmoe-dinosiglip-224px"
+
+    freeze_vision_backbone: bool = True
     freeze_llm_backbone: bool = False
     unfreeze_last_llm_layer: bool = False
 
@@ -89,14 +118,6 @@ class Exp_SigLIP_224px_Bridge(VLAConfig):
     warmup_ratio: float = 0.0
 
     train_strategy: str = "fsdp-full-shard"
-
-@dataclass
-class Jetmoe_DinoSigLIP_224px_Bridge(Exp_SigLIP_224px_Bridge):
-    vla_id: str = "prism-dinosiglip-224px+mx-bridge"
-    base_vlm: Union[str, Path] = "prism-dinosiglip-224px+7b"
-
-    # data_mix: str = "bridge"
-    data_mix: str = "fractal20220817_data"
 
 # = [8 GPU] SigLIP 224px Frozen Vision Backbone + Bridge =
 @dataclass
@@ -232,6 +253,7 @@ class VLARegistry(Enum):
 
     # === DROID Fine-tuning Configs ===
     SIGLIP_224PX_MX_DROID_WIPE = Exp_SigLIP_224px_Droid_Wipe
+    JETMOE_SIGLIP_224PX_BRIDGE = Jetmoe_SigLIP_224px_Bridge
 
     @property
     def vla_id(self) -> str:

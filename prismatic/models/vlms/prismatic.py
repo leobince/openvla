@@ -287,6 +287,7 @@ class PrismaticVLM(VLM):
             return
 
         # Otherwise, handle stage-specific logic!
+        model_state_dict = None
         if stage == "inference":
             model_state_dict = torch.load(pretrained_checkpoint)["model"]
             self.projector.load_state_dict(model_state_dict["projector"])
@@ -323,6 +324,12 @@ class PrismaticVLM(VLM):
             # self.vision_backbone.load_state_dict(model_state_dict["vision_backbone"])
             return
 
+        if model_state_dict != None:
+            del model_state_dict
+            import gc
+            gc.collect()
+            torch.cuda.empty_cache()
+        
         # [Contract] If no `pretrained_checkpoint`, assume `align` lives in the run directory; string substitution!
         model, scale, _, seed = run_dir.name.split("+")
         align_dirs = [

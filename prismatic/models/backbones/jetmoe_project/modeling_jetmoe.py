@@ -45,7 +45,7 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from .configuration_jetmoe import JetMoEConfig
+from .configuration_jetmoe import JetMoEConfig_bubble
 from .utils import MoE, ParallelExperts
 
 
@@ -55,8 +55,8 @@ if is_flash_attn_2_available():
 
 logger = logging.get_logger(__name__)
 
-_CHECKPOINT_FOR_DOC = "jetmoe"
-_CONFIG_FOR_DOC = "JetMoEConfig"
+_CHECKPOINT_FOR_DOC = "jetmoe-bubble"
+_CONFIG_FOR_DOC = "JetMoEConfig_bubble"
 
 
 @dataclass
@@ -282,7 +282,7 @@ class JetMoEAttention(nn.Module):
     Multi-headed attention from 'Attention Is All You Need' paper.
     """
 
-    def __init__(self, config: JetMoEConfig, layer_idx: Optional[int] = None):
+    def __init__(self, config: JetMoEConfig_bubble, layer_idx: Optional[int] = None):
         """
         Initialize the JetMoEAttention module.
 
@@ -313,6 +313,7 @@ class JetMoEAttention(nn.Module):
             hidden_size=self.kv_projection_size,
             num_experts=config.moe_num_experts,
             top_k=config.moe_top_k,
+            bias=True,
             glu=False,
         )
 
@@ -723,7 +724,7 @@ JETMOE_ATTENTION_CLASSES = {
 
 
 class JetMoEBlock(nn.Module):
-    def __init__(self, config: JetMoEConfig, layer_idx: Optional[int] = None):
+    def __init__(self, config: JetMoEConfig_bubble, layer_idx: Optional[int] = None):
         """
         Initialize the JetMoEBlock module.
 
@@ -741,7 +742,7 @@ class JetMoEBlock(nn.Module):
             num_experts=config.moe_num_experts,
             activation=ACT2FN[config.activation_function],
             top_k=config.moe_top_k,
-            bias=config.bias,
+            bias=True,
             glu=config.glu,
         )
 
@@ -803,7 +804,7 @@ class JetMoEPreTrainedModel(PreTrainedModel):
     models.
     """
 
-    config_class = JetMoEConfig
+    config_class = JetMoEConfig_bubble
     base_model_prefix = "transformer"
     supports_gradient_checkpointing = False
     _no_split_modules = ["JetMoEBlock"]
@@ -883,7 +884,7 @@ JETMOE_START_DOCSTRING = r"""
     behavior.
 
     Parameters:
-        config ([`JetMoEConfig`]): Model configuration class with all the parameters of the model.
+        config ([`JetMoEConfig_bubble`]): Model configuration class with all the parameters of the model.
             Initializing with a config file does not load the weights associated with the model, only the
             configuration. Check out the [`~PreTrainedModel.from_pretrained`] method to load the model weights.
 """
@@ -947,10 +948,10 @@ class JetMoEModel(JetMoEPreTrainedModel):
     Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`JetMoEBlock`]
 
     Args:
-        config: JetMoEConfig
+        config: JetMoEConfig_bubble
     """
 
-    def __init__(self, config: JetMoEConfig):
+    def __init__(self, config: JetMoEConfig_bubble):
         super().__init__(config)
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
@@ -958,6 +959,7 @@ class JetMoEModel(JetMoEPreTrainedModel):
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([JetMoEBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
         self._attn_implementation = config._attn_implementation
+        print(self._attn_implementation)
         self.norm = JetMoERMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False

@@ -17,7 +17,7 @@ from transformers.utils import OptionalDependencyNotAvailable, _LazyModule, is_t
 
 
 _import_structure = {
-    "configuration_jetmoe": ["JETMOE_PRETRAINED_CONFIG_ARCHIVE_MAP", "JetMoEConfig"],
+    "configuration_jetmoe": ["JETMOE_PRETRAINED_CONFIG_ARCHIVE_MAP", "JetMoEConfig_bubble"],
 }
 
 
@@ -35,7 +35,7 @@ else:
     ]
 
 if TYPE_CHECKING:
-    from .configuration_jetmoe import JETMOE_PRETRAINED_CONFIG_ARCHIVE_MAP, JetMoEConfig
+    from .configuration_jetmoe import JETMOE_PRETRAINED_CONFIG_ARCHIVE_MAP, JetMoEConfig_bubble
 
     try:
         if not is_torch_available():

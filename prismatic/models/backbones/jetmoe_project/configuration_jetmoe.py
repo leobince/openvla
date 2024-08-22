@@ -21,7 +21,7 @@ from transformers.utils import logging
 logger = logging.get_logger(__name__)
 
 
-class JetMoEConfig(PretrainedConfig):
+class JetMoEConfig_bubble(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`JetMoEModel`]. It is used to instantiate an
     JetMoE model according to the specified arguments, defining the model architecture. Instantiating a configuration
@@ -83,7 +83,7 @@ class JetMoEConfig(PretrainedConfig):
     >>> configuration = model.config
     ```"""
 
-    model_type = "jetmoe"
+    model_type = "jetmoe-bubble"
     keys_to_ignore_at_inference = ["past_key_values"]
 
     def __init__(
@@ -104,10 +104,11 @@ class JetMoEConfig(PretrainedConfig):
         bos_token_id=1,
         eos_token_id=2,
         tie_word_embeddings=True,
-        bias=True,
+     
         rope_theta=10000.0,
         rms_norm_eps=1e-6,
         initializer_range=0.01,
+        _attn_implementation="eager",
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -128,10 +129,9 @@ class JetMoEConfig(PretrainedConfig):
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
 
-        self.bias = bias
         self.rope_theta = rope_theta
         self.rms_norm_eps = rms_norm_eps
-
+        self._attn_implementation = _attn_implementation
         super().__init__(
             bos_token_id=bos_token_id, eos_token_id=eos_token_id, tie_word_embeddings=tie_word_embeddings, **kwargs
         )

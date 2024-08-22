@@ -78,9 +78,9 @@ class TrainConfig:
     hf_token: Union[str, Path] = ""
 
     # Tracking Parameters
-    trackers: Tuple[str, ...] = ("jsonl", "wandb")                  # Trackers to initialize (if W&B, add config!)
+    trackers: Tuple[str, ...] = ("jsonl",)                  # Trackers to initialize (if W&B, add config!)
     wandb_project: str = "openvla"                                  # Name of W&B project to log to (use default!)
-    wandb_entity: str = "stanford-voltron"                          # Name of entity to log under
+    wandb_entity: str = "Bubbleseller"                          # Name of entity to log under
 
     def __post_init__(self) -> None:
         """Lift optimization parameters from `self.vla` for ease of use =>> validate on `expected_world_size`"""
@@ -154,7 +154,7 @@ def train(cfg: TrainConfig) -> None:
 
     else:
         if cfg.prismatic_checkpoint is not None:
-            vlm = load(cfg.prismatic_checkpoint, hf_token=hf_token, load_for_training=True)
+            vlm = load(cfg.prismatic_checkpoint, hf_token=hf_token, load_for_training=True, llm_load_weight=False)
         else:
             vlm = load(cfg.vla.base_vlm, hf_token=hf_token, load_for_training=True)
 
@@ -183,7 +183,7 @@ def train(cfg: TrainConfig) -> None:
 
     # [Explicit] Call to `freeze_backbones` here for clarity =>> will log exactly what is/is not frozen
     overwatch.info(f"Invoking `VLM.freeze_backbones()` for `{vla_id}` => Stage: `{stage}`")
-    vlm.freeze_backbones(stage)
+    vlm.freeze_backbones(stage=stage, train_llm_when_align = False)
 
     # Print number of total/trainable model parameters
     num_params = sum(p.numel() for p in vlm.parameters())
