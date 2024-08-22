@@ -41,7 +41,7 @@ class DinoSigLIPImageTransform:
 
 
 class DinoSigLIPViTBackbone(VisionBackbone):
-    def __init__(self, vision_backbone_id: str, image_resize_strategy: str, default_image_size: int = 224) -> None:
+    def __init__(self, vision_backbone_id: str, image_resize_strategy: str, default_image_size: int = 224, path1 = None, path2 = None) -> None:
         super().__init__(vision_backbone_id, image_resize_strategy, default_image_size=default_image_size)
         self.dino_timm_path_or_url = DINOSigLIP_VISION_BACKBONES[vision_backbone_id]["dino"]
         self.siglip_timm_path_or_url = DINOSigLIP_VISION_BACKBONES[vision_backbone_id]["siglip"]
@@ -57,6 +57,11 @@ class DinoSigLIPViTBackbone(VisionBackbone):
         )
         self.siglip_featurizer.eval()
 
+        if path1 != None:
+            self.dino_featurizer.load_state_dict(torch.load(path1))
+        if path2 != None:
+            self.siglip_featurizer.load_state_dict(torch.load(path2))
+            
         # Monkey-Patch the `forward()` function of the featurizers to ensure FSDP-compatibility
         #   => Note: By default set `get_intermediate_layers` to return the *SECOND-TO-LAST* layer patches!
         #   => TODO (siddk) Remove after resolution of https://github.com/pytorch/pytorch/issues/109385

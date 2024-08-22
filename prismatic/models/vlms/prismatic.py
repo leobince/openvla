@@ -45,6 +45,7 @@ class PrismaticVLM(VLM):
         llm_backbone: LLMBackbone,
         enable_mixed_precision_training: bool = True,
         arch_specifier: str = "gelu-mlp",
+        continue_from_checkpoint: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -94,6 +95,7 @@ class PrismaticVLM(VLM):
         enable_mixed_precision_training: bool = True,
         arch_specifier: str = "gelu-mlp",
         freeze_weights: bool = True,
+        vision_backbone_path=None,
         **kwargs,
     ) -> PrismaticVLM:
         """Initialize a PrismaticVLM from a pretrained checkpoint, freezing all weights, tailored for inference."""
@@ -105,36 +107,23 @@ class PrismaticVLM(VLM):
             arch_specifier=arch_specifier,
             **kwargs,
         )
-        flag = False
-        if isinstance(pretrained_checkpoint, list):
-            flag = True
-            model_state_dict = load_statedict(pretrained_checkpoint)
+
         # Load from Checkpoint (Custom --> should load both *projector* and *llm* weights)
-        else:
-            model_state_dict = torch.load(pretrained_checkpoint, map_location="cpu")["model"]
+        
+        model_state_dict = torch.load(pretrained_checkpoint, map_location="cpu")["model"]
         assert (
-            "projector" in model_state_dict and "llm_backbone" in model_state_dict
+            "projector" in model_state_dict and "llm_backbone" in model_state_dict 
         ), "PrismaticVLM `from_pretrained` expects checkpoint with keys for `projector` AND `llm_backbone`!"
         
-        if flag == True:
-            projector_state_dict = {k: v for k, v in model_state_dict.items() if k.startswith('projector')}
-            vlm.projector.load_state_dict(projector_state_dict)
-        else:
-            vlm.projector.load_state_dict(model_state_dict["projector"])
-
-        
-        # if not from_moe:
-        if flag == True:
-            llm_state_dict = {k: v for k, v in model_state_dict.items() if k.startswith('language_model')}
-            vlm.llm_backbone.load_state_dict(llm_state_dict)
-        else:
-            vlm.llm_backbone.load_state_dict(model_state_dict["llm_backbone"])
-        if flag == True:
-            vision_state_dict = {k: v for k, v in model_state_dict.items() if k.startswith('vision_backbone')}
-            vlm.vision_backbone.load_state_dict(vision_state_dict)
-        elif "vision_backbone" in model_state_dict.keys():
+        vlm.projector.load_state_dict(model_state_dict["projector"])       
+        vlm.llm_backbone.load_state_dict(model_state_dict["llm_backbone"])
+        if "vision_backbone" in model_state_dict.keys():
             vlm.vision_backbone.load_state_dict(model_state_dict["vision_backbone"])
-
+        elif vision_backbone_path is not None:
+            assert ( isinstance(vision_backbone_path, dict)), "vision_backbone_path must be a dict!"
+            vlm.vision_backbone.dino_featurizer.load_state_dict(torch.load(vision_backbone_path['path1']))
+            vlm.vision_backbone.siglip_featurizer.load_state_dict(torch.load(vision_backbone_path['path2']))
+    
         # Freeze Weights
         if freeze_weights:
             vlm.requires_grad_(False)
@@ -146,7 +135,7 @@ class PrismaticVLM(VLM):
         prompt_initializer: Type[PromptBuilder] = self.llm_backbone.prompt_builder_fn
         return prompt_initializer(self.model_family, system_prompt=system_prompt)
 
-    def freeze_backbones(self, stage: str) -> None:
+    def freeze_backbones(self, stage: str, train_llm_when_align: bool) -> None:
         """
         This function sets `requires_grad_` on each of the component modules explicitly, depending on stage.
 
@@ -154,9 +143,20 @@ class PrismaticVLM(VLM):
             => "align" --> vision_backbone*, llm_backbone* are frozen; only the `projector` is trained.
             => "finetune" --> vision_backbone* is frozen; both `projector` and `llm_backbone` are trained.
 
-        :param stage: Pretraining stage in < "align" | "finetune" | "full-finetune" | "vla-train" | "vla-full-train" >
+        :param stage: Pretraining stage in < "align" | "finetune" | "full-finetune" | "vla-train" | "vla-full-train" | "align-finetune">
         """
-        if stage == "align":
+        if stage == "inference":
+            self.vision_backbone.requires_grad_(False)
+            self.llm_backbone.requires_grad_(False)
+            self.projector.requires_grad_(False)
+
+            # Add to `self.trainable_module_keys`
+            self.trainable_module_keys = []
+
+            # Update Trackers
+            self.vision_backbone_requires_grad = False
+        
+        elif stage == "align":
             self.vision_backbone.requires_grad_(False)
             self.llm_backbone.requires_grad_(False)
             self.projector.requires_grad_(True)
@@ -172,6 +172,21 @@ class PrismaticVLM(VLM):
             overwatch.info(f"[Frozen]    🥶 =>> LLM Backbone `{self.llm_backbone.identifier}`", ctx_level=1)
             overwatch.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`", ctx_level=1)
 
+        elif stage == "align" and train_llm_when_align == True:
+            self.vision_backbone.requires_grad_(False)
+            self.llm_backbone.requires_grad_(True)
+            self.projector.requires_grad_(True)
+
+            # Add to `self.trainable_module_keys`
+            self.trainable_module_keys = ["projector", "llmb_backbone"]
+
+            # Update Trackers
+            self.vision_backbone_requires_grad = False
+
+            # Explicitly Log Frozen / Trainable Components
+            overwatch.info(f"[Frozen]    🥶 =>> Vision Backbone `{self.vision_backbone.identifier}`", ctx_level=1)
+            overwatch.info(f"[TRAINABLE]    🥶 =>> LLM Backbone `{self.llm_backbone.identifier}`", ctx_level=1)
+            overwatch.info(f"[TRAINABLE] 🔥 =>> Projector `{self.arch_specifier}`", ctx_level=1)
         elif stage in {"finetune", "vla-train"}:
             self.vision_backbone.requires_grad_(False)
             self.llm_backbone.requires_grad_(True)
@@ -260,9 +275,9 @@ class PrismaticVLM(VLM):
             if param.requires_grad:
                 overwatch.debug(name)
 
-    def load_from_checkpoint(self, stage: str, run_dir: Path, pretrained_checkpoint: Optional[Path] = None) -> None:
+    def load_from_checkpoint(self, stage: str, run_dir: Path, pretrained_checkpoint: Optional[Path] = None, continue_from_checkpoint:bool = False) -> None:
         """Load weights from checkpoint (if required by the given stage)."""
-        assert stage in {"align", "finetune", "full-finetune"}, f"Stage {stage} is not supported!"
+        assert stage in {"align", "finetune", "full-finetune", "inference", "align-finetune"}, f"Stage {stage} is not supported!"
 
         # If we're running a `no-align` architecture, we're good!
         if self.arch_specifier.startswith("no-align"):
@@ -272,19 +287,40 @@ class PrismaticVLM(VLM):
             return
 
         # Otherwise, handle stage-specific logic!
-        if stage == "align":
+        if stage == "inference":
+            model_state_dict = torch.load(pretrained_checkpoint)["model"]
+            self.projector.load_state_dict(model_state_dict["projector"])
+            self.llm_backbone.load_state_dict(model_state_dict["llm_backbone"])
+            return
+        if (stage == "align") and continue_from_checkpoint == False:
             overwatch.info("Stage `align` does not require pretrained weights =>> Starting Training", ctx_level=1)
             return
-
+        elif (stage == "align") and continue_from_checkpoint == True:
+            overwatch.info("Stage `align` requires `align` pretrained weights", ctx_level=1)
+            overwatch.info(f"Continuing from Checkpoint{pretrained_checkpoint}", ctx_level=1)
+            model_state_dict = torch.load(pretrained_checkpoint)["model"]
+            self.projector.load_state_dict(model_state_dict["projector"])
+            return
         # Otherwise, load from `pretrained_checkpoint` or match on `run_dir` (s/+stage-finetune/+stage-align/g)
         overwatch.info("Stage `finetune` requires `align` pretrained weights", ctx_level=1)
 
         # Config specifies path to a checkpoint to load
-        if pretrained_checkpoint is not None:
+        if pretrained_checkpoint is not None and continue_from_checkpoint == False:
             overwatch.info(f"Loading from Provided Checkpoint `{pretrained_checkpoint}`", ctx_level=1)
             model_state_dict = torch.load(pretrained_checkpoint)["model"]
             self.projector.load_state_dict(model_state_dict["projector"])
-
+            return
+        elif pretrained_checkpoint is not None and continue_from_checkpoint == True:
+            model_state_dict = torch.load(pretrained_checkpoint)["model"]
+            assert (
+            "projector" in model_state_dict and "llm_backbone" in model_state_dict 
+            ), "PrismaticVLM `from_pretrained` expects checkpoint with keys for `projector` AND `llm_backbone` !"
+        
+            self.projector.load_state_dict(model_state_dict["projector"])
+            self.llm_backbone.load_state_dict(model_state_dict["llm_backbone"])
+            # 不需要load vision weight 因为已经load了
+            
+            # self.vision_backbone.load_state_dict(model_state_dict["vision_backbone"])
             return
 
         # [Contract] If no `pretrained_checkpoint`, assume `align` lives in the run directory; string substitution!

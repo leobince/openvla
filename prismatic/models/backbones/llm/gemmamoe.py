@@ -19,8 +19,8 @@ from prismatic.models.backbones.llm.prompting import (
     VicunaV15ChatPromptBuilder,
 )
 
-from ..jetmoe_project import JetMoEForCausalLM
-from ..jetmoe_project.modeling_jetmoe import JetMoEBlock
+from ..gemmamoe_project import GemmaMoEForCausalLM
+from ..gemmamoe_project.modeling_gemmamoe import GemmaMoEBlock
 '''
 import sys
 import os
@@ -38,10 +38,10 @@ from folder1 import file1
 
 # Registry =>> Support LLaMa-2 Models (from HF Transformers)
 # fmt: off
-JetmoeModel = {
+GemmamoeModel = {
     # === Pure Meta LLaMa-2 (non-instruct/chat-tuned) Models ===
-    "jetmoe-8b": {
-        "llm_family": "jetmoe", "llm_cls": JetMoEForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/jetmoe-8b/jetmoe-8b"
+    "gemmamoe": {
+        "llm_family": "gemmamoe", "llm_cls": GemmaMoEForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/gemmamoe"
     },
 
     
@@ -49,7 +49,7 @@ JetmoeModel = {
 # fmt: on
 
 
-class JetmoeBackbone(HFCausalLLMBackbone):
+class GemmamoeBackbone(HFCausalLLMBackbone):
     def __init__(
         self,
         llm_backbone_id: str,
@@ -58,7 +58,7 @@ class JetmoeBackbone(HFCausalLLMBackbone):
         inference_mode: bool = False,
         use_flash_attention_2: bool = True,
         debug = False,
- 
+     
     ) -> None:
         super().__init__(
             llm_backbone_id,
@@ -67,8 +67,8 @@ class JetmoeBackbone(HFCausalLLMBackbone):
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
             debug = debug,
-       
-            **JetmoeModel[llm_backbone_id],
+          
+            **GemmamoeModel[llm_backbone_id],
         )
 
         # [Special Case] LLaMa-2 PAD Token Handling --> for clarity, we add an extra token (and resize)
@@ -95,7 +95,7 @@ class JetmoeBackbone(HFCausalLLMBackbone):
 
     @property
     def transformer_layer_cls(self) -> Type[nn.Module]:
-        return JetMoEBlock
+        return GemmaMoEBlock
 
     @property
     def half_precision_dtype(self) -> torch.dtype:

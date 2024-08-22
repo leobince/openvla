@@ -17,7 +17,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader, Dataset, DistributedSampler, IterableDataset
 from tqdm import tqdm
 from transformers.modeling_outputs import CausalLMOutputWithPast
-
+from torch.utils.tensorboard import SummaryWriter
 from prismatic.models.vlms import PrismaticVLM
 from prismatic.overwatch import initialize_overwatch
 from prismatic.training.metrics import Metrics, VLAMetrics
@@ -84,9 +84,10 @@ class TrainingStrategy(ABC):
         ), "Per-device batch size must evenly divide global batch size!"
         self.grad_accumulation_steps = self.global_batch_size // self.per_device_batch_size // overwatch.world_size()
         if self.enable_mixed_precision_training:
-            assert self.mixed_precision_dtype == torch.bfloat16, "Only BF16 mixed precision training is supported!"
-            assert check_bloat16_supported(), "BFloat16 is not supported on this hardware; unset `mixed_precision`"
-
+            # assert self.mixed_precision_dtype == torch.bfloat16, "Only BF16 mixed precision training is supported!"
+            if self.mixed_precision_dtype == torch.bfloat16:
+                assert check_bloat16_supported(), "BFloat16 is not supported on this hardware; unset `mixed_precision`"
+            
     @abstractmethod
     def save_checkpoint(
         self,
@@ -111,6 +112,9 @@ class TrainingStrategy(ABC):
         stage: str = "finetune",
         batch_construction_strategy: str = "split-modality",
         seed: int = 7,
+        save_interval: int = 500,
+        continue_step:int = 0,
+        tensorboard_writer: Optional[torch.utils.tensorboard.SummaryWriter] = None,
     ) -> None:
         """Run the training loop for the given `dataset` and `collator`; log losses, results to `metrics`"""
         if "finetune" in stage and batch_construction_strategy == "split-modality":
@@ -165,6 +169,7 @@ class TrainingStrategy(ABC):
             leave=False,
             disable=not overwatch.is_rank_zero(),
         ) as progress:
+            
             for epoch in range(self.epochs):
                 self.vlm.train()
                 sampler.set_epoch(epoch)
@@ -176,6 +181,17 @@ class TrainingStrategy(ABC):
                 #   => Basically, if we're using mixed precision (or not), autocast()/FSDP will move to device!
                 for train_idx, batch in enumerate(dataloader):
                     # [Contract] self.vlm.forward() must automatically compute `loss` and return!
+                    if metrics.global_step < continue_step:
+                        self.lr_scheduler.step()
+                        if (train_idx + 1) % self.grad_accumulation_steps == 0:
+                            metrics.commit(global_step=metrics.global_step + 1, lr=self.lr_scheduler.get_last_lr()[0])
+                            # metrics.commit(loss=torch.tensor(0.0, dtype=torch.float)) 
+                            metrics.commit(update_step_time=True)
+                            status = metrics.push()
+                            progress.update()
+                            progress.set_description(status)
+                        continue
+            
                     with torch.autocast(
                         "cuda",
                         dtype=self.mixed_precision_dtype,
@@ -192,6 +208,8 @@ class TrainingStrategy(ABC):
 
                     # Commit Loss (Prior to Gradient Accumulation Normalization)
                     metrics.commit(loss=loss)
+                    if tensorboard_writer != None:
+                        tensorboard_writer.add_scalar('training loss', loss.item(), epoch)
 
                     # Normalize Loss to account for Gradient Accumulation --> Backward!
                     # [IMPORTANT] Technically speaking, doing gradient accumulation in this way is "incorrect"; this is
@@ -216,14 +234,17 @@ class TrainingStrategy(ABC):
                         self.clip_grad_norm()
 
                         # Optimizer & LR Scheduler Step
-                        self.optimizer.step()
-                        self.lr_scheduler.step()
+                        self.optimizer.step()                      
                         self.optimizer.zero_grad()
-
+                        self.lr_scheduler.step()
                         # Push Metrics
                         metrics.commit(global_step=metrics.global_step + 1, lr=self.lr_scheduler.get_last_lr()[0])
                         status = metrics.push()
 
+                        if  (metrics.global_step % save_interval) == 0 and metrics.global_step != continue_step:
+                            self.save_checkpoint(metrics.run_dir, metrics.global_step, epoch, loss.item())
+                            dist.barrier()
+                            
                         # Check for Termination & Save Final Checkpoint (in case `max_steps` is not None)
                         if self.max_steps is not None and metrics.global_step >= self.max_steps:
                             self.save_checkpoint(metrics.run_dir, metrics.global_step, epoch, loss.item())
@@ -248,7 +269,7 @@ class TrainingStrategy(ABC):
         collator: PaddedCollatorForActionPrediction,
         action_tokenizer: ActionTokenizer,
         metrics: VLAMetrics,
-        save_interval: int = 2500,
+        save_interval: int = 500,
         save_full_model: bool = True,
     ) -> None:
         """Run the VLA training loop for the given `dataset` and `collator`; log losses, action metrics to `metrics`."""

@@ -47,6 +47,7 @@ class VLM(nn.Module, GenerationMixin, ABC):
 
         # === GenerationMixin Expected Attributes =>> *DO NOT MODIFY* ===
         self.generation_config = self.llm_backbone.llm.generation_config
+        self.generation_config.max_length = 2048
         self.main_input_name = "input_ids"
 
     @property

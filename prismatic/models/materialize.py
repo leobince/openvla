@@ -9,7 +9,7 @@ from typing import Optional, Tuple
 
 from transformers import PreTrainedTokenizerBase
 
-from prismatic.models.backbones.llm import LLaMa2LLMBackbone, LLMBackbone, MistralLLMBackbone, PhiLLMBackbone, JetmoeBackbone
+from prismatic.models.backbones.llm import LLaMa2LLMBackbone, LLMBackbone, MistralLLMBackbone, PhiLLMBackbone, JetmoeBackbone, Gemma2LLMBackbone, GemmamoeBackbone
 from prismatic.models.backbones.vision import (
     CLIPViTBackbone,
     DinoCLIPViTBackbone,
@@ -19,6 +19,7 @@ from prismatic.models.backbones.vision import (
     IN1KViTBackbone,
     SigLIPViTBackbone,
     VisionBackbone,
+    NRPR_DinoSigLIPViTBackbone,
 )
 from prismatic.models.vlms import PrismaticVLM
 
@@ -32,7 +33,9 @@ VISION_BACKBONES = {
     "siglip-vit-so400m": {"cls": SigLIPViTBackbone, "kwargs": {"default_image_size": 224}},
     "dinov2-vit-l": {"cls": DinoV2ViTBackbone, "kwargs": {"default_image_size": 224}},
     "in1k-vit-l": {"cls": IN1KViTBackbone, "kwargs": {"default_image_size": 224}},
-    "dinosiglip-vit-so-224px": {"cls": DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 224}},
+    "dinosiglip-vit-so-224px": {"cls": DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 224,
+                                                                         "path1":"/mnt/csp/mmvision/home/lwh/vit/vit_patch16_224.pth",
+                                                                         "path2":"/mnt/csp/mmvision/home/lwh/vit/vit_patch14_siglip_224.pth"}},
 
     # === Assorted CLIP Backbones ===
     "clip-vit-b": {"cls": CLIPViTBackbone, "kwargs": {"default_image_size": 224}},
@@ -47,6 +50,9 @@ VISION_BACKBONES = {
     # === Fused Backbones ===
     "dinoclip-vit-l-336px": {"cls": DinoCLIPViTBackbone, "kwargs": {"default_image_size": 336}},
     "dinosiglip-vit-so-384px": {"cls": DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 384}},
+    
+    # === Native Resolution with Perceiver Resampler Backbones ===
+    "nrpr_dinosiglip-vit": {"cls": NRPR_DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 224}},
 }
 
 
@@ -72,7 +78,10 @@ LLM_BACKBONES = {
     "phi-2-3b": {"cls": PhiLLMBackbone, "kwargs": {}},
 
     # === Jetmoe Backbone ===
-    "jetmoe-8b": {"cls": JetmoeBackbone, "kwargs": {}}
+    "jetmoe-8b": {"cls": JetmoeBackbone, "kwargs": {}},
+    "gemma2-2b": {"cls": Gemma2LLMBackbone, "kwargs": {}},
+    "llama2-7b": {"cls": LLaMa2LLMBackbone, "kwargs": {}},
+    "gemmamoe": {"cls": GemmamoeBackbone, "kwargs": {}}
 }
 
 # fmt: on
@@ -99,6 +108,7 @@ def get_llm_backbone_and_tokenizer(
     llm_max_length: int = 2048,
     hf_token: Optional[str] = None,
     inference_mode: bool = False,
+    debug: bool = False,
 ) -> Tuple[LLMBackbone, PreTrainedTokenizerBase]:
     if llm_backbone_id in LLM_BACKBONES:
         llm_cfg = LLM_BACKBONES[llm_backbone_id]
@@ -107,6 +117,7 @@ def get_llm_backbone_and_tokenizer(
             llm_max_length=llm_max_length,
             hf_token=hf_token,
             inference_mode=inference_mode,
+            debug = debug,
             **llm_cfg["kwargs"],
         )
         tokenizer = llm_backbone.get_tokenizer()
@@ -122,6 +133,7 @@ def get_vlm(
     vision_backbone: VisionBackbone,
     llm_backbone: LLMBackbone,
     enable_mixed_precision_training: bool = True,
+    continue_from_checkpoint: bool = False,
 ) -> PrismaticVLM:
     """Lightweight wrapper around initializing a VLM, mostly for future-proofing (if one wants to add a new VLM)."""
     return PrismaticVLM(
@@ -130,4 +142,5 @@ def get_vlm(
         llm_backbone,
         enable_mixed_precision_training=enable_mixed_precision_training,
         arch_specifier=arch_specifier,
+        continue_from_checkpoint=continue_from_checkpoint,
     )

@@ -496,10 +496,168 @@ class Prism_7B_DINOSigLIP_224px(Exp_7B_One_Stage):
     arch_specifier: str = "no-align+fused-gelu-mlp"
     finetune_epochs: int = 2
 
+@dataclass
+class Jetmoe_DINOSigLIP_224px(Exp_7B_One_Stage):
+    model_id: str = "jetmoe-dinosiglip-224px"
+    vision_backbone_id: str = "dinosiglip-vit-so-224px"
+    image_resize_strategy: str = "resize-naive"
+    llm_backbone_id: str = "jetmoe-8b"
+    arch_specifier: str = "fused-gelu-mlp"
+    
+    # Align Stage Optimization Parameters
+    align_epochs: int = 1
+    align_max_steps: Optional[int] = None
+    align_global_batch_size: int = 256
+    align_per_device_batch_size: int = 16
 
+    align_learning_rate: float = 1e-3
+    align_weight_decay: float = 0.0
+    align_max_grad_norm: float = 1.0
+    align_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    align_warmup_ratio: float = 0.03
+
+    align_train_strategy: str = "fsdp-shard-grad-op"
+
+    # Finetune Stage Optimization Parameters
+    finetune_epochs: int = 1
+    finetune_max_steps: Optional[int] = None
+    finetune_global_batch_size: int = 128
+    finetune_per_device_batch_size: int = 2
+
+    finetune_learning_rate: float = 2e-5
+    finetune_weight_decay: float = 0.1
+    finetune_max_grad_norm: float = 1.0
+    finetune_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    finetune_warmup_ratio: float = 0.03
+
+    finetune_train_strategy: str = "fsdp-full-shard"
+
+@dataclass
+class Jetmoe_Navit_224px(Jetmoe_DINOSigLIP_224px):
+    model_id: str = "jetmoe-navit-224px"
+    
+    vision_backbone_id: str = "nrpr_dinosiglip-vit"
+    align_global_batch_size: int = 192
+    align_per_device_batch_size: int = 24
+
+@dataclass
+class Gemma2_DINOSigLIP_224px(Exp_7B_One_Stage):
+    model_id: str = "gemma2-dinosiglip-224px"
+    vision_backbone_id: str = "dinosiglip-vit-so-224px"
+    image_resize_strategy: str = "resize-naive"
+    llm_backbone_id: str = "gemma2-2b"
+    arch_specifier: str = "fused-gelu-mlp"
+    
+    # Align Stage Optimization Parameters
+    align_epochs: int = 1
+    align_max_steps: Optional[int] = None
+    align_global_batch_size: int = 256
+    align_per_device_batch_size: int = 16
+
+    align_learning_rate: float = 1e-3
+    align_weight_decay: float = 0.0
+    align_max_grad_norm: float = 1.0
+    align_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    align_warmup_ratio: float = 0.03
+
+    align_train_strategy: str = "fsdp-shard-grad-op"
+
+    # Finetune Stage Optimization Parameters
+    finetune_epochs: int = 1
+    finetune_max_steps: Optional[int] = None
+    finetune_global_batch_size: int = 128
+    finetune_per_device_batch_size: int = 2
+
+    finetune_learning_rate: float = 2e-5
+    finetune_weight_decay: float = 0.1
+    finetune_max_grad_norm: float = 1.0
+    finetune_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    finetune_warmup_ratio: float = 0.03
+
+    finetune_train_strategy: str = "fsdp-full-shard"
+    
+@dataclass
+class Llama2_DINOSigLIP_224px(Exp_7B_One_Stage):
+    model_id: str = "llama2-dinosiglip-224px"
+    vision_backbone_id: str = "dinosiglip-vit-so-224px"
+    image_resize_strategy: str = "resize-naive"
+    llm_backbone_id: str = "llama2-7b"
+    arch_specifier: str = "fused-gelu-mlp"
+    
+    # Align Stage Optimization Parameters
+    align_epochs: int = 1
+    align_max_steps: Optional[int] = None
+    align_global_batch_size: int = 256
+    align_per_device_batch_size: int = 16
+
+    align_learning_rate: float = 1e-3
+    align_weight_decay: float = 0.0
+    align_max_grad_norm: float = 1.0
+    align_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    align_warmup_ratio: float = 0.03
+
+    align_train_strategy: str = "fsdp-shard-grad-op"
+
+    # Finetune Stage Optimization Parameters
+    finetune_epochs: int = 1
+    finetune_max_steps: Optional[int] = None
+    finetune_global_batch_size: int = 128
+    finetune_per_device_batch_size: int = 8
+
+    finetune_learning_rate: float = 2e-5
+    finetune_weight_decay: float = 0.1
+    finetune_max_grad_norm: float = 1.0
+    finetune_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    finetune_warmup_ratio: float = 0.03
+
+    finetune_train_strategy: str = "fsdp-full-shard"
 # === Define a Model Registry Enum for Reference & Validation ===
+
+@dataclass
+class Gemmamoe_DINOSigLIP_224px(Exp_7B_One_Stage):
+    model_id: str = "gemmamoe-dinosiglip-224px"
+    vision_backbone_id: str = "dinosiglip-vit-so-224px"
+    image_resize_strategy: str = "resize-naive"
+    llm_backbone_id: str = "gemmamoe"
+    arch_specifier: str = "fused-gelu-mlp"
+    
+    # Align Stage Optimization Parameters
+    align_epochs: int = 1
+    align_max_steps: Optional[int] = None
+    align_global_batch_size: int = 256
+    align_per_device_batch_size: int = 8
+
+    align_learning_rate: float = 1e-3
+    align_weight_decay: float = 0.0
+    align_max_grad_norm: float = 1.0
+    align_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    align_warmup_ratio: float = 0.03
+
+    align_train_strategy: str = "fsdp-full-shard"
+
+    # Finetune Stage Optimization Parameters
+    finetune_epochs: int = 1
+    finetune_max_steps: Optional[int] = None
+    finetune_global_batch_size: int = 128
+    finetune_per_device_batch_size: int = 2
+
+    finetune_learning_rate: float = 2e-5
+    finetune_weight_decay: float = 0.1
+    finetune_max_grad_norm: float = 1.0
+    finetune_lr_scheduler_type: str = "linear-warmup+cosine-decay"
+    finetune_warmup_ratio: float = 0.03
+
+    finetune_train_strategy: str = "fsdp-full-shard"
+    
 @unique
 class ModelRegistry(Enum):
+    GEMMAMOE_DINOSIGLIP = Gemmamoe_DINOSigLIP_224px
+    LLAMA2_DINOSIGLIP = Llama2_DINOSigLIP_224px
+    GEMMA2_DINOSIGLIP = Gemma2_DINOSigLIP_224px
+    JETMOE_NAVIT = Jetmoe_Navit_224px
+    #jetmoe
+    JETMOE_8B = Jetmoe_DINOSigLIP_224px
+    
     # === LLaVa v1.5 Base Reproductions ===
     REPRODUCTION_7B = LLaVa_v15_Reproduction_7B
     REPRODUCTION_13B = LLaVa_v15_Reproduction_13B

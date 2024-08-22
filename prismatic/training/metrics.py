@@ -172,7 +172,10 @@ class Metrics:
         # Generic Keyword Arguments
         for key, value in kwargs.items():
             if key == "loss":
-                loss_val = value.detach()
+                try:
+                    loss_val = value.detach()
+                except:
+                    loss_val = value
                 self.state["loss_raw"].append(loss_val)
                 self.state["loss"].append(loss_val)
             else:
@@ -181,8 +184,12 @@ class Metrics:
     @overwatch.rank_zero_only
     def push(self) -> str:
         # Note :: Raw Loss is an Average over Gradient Accumulation Steps --> No Smoothing!
-        loss_raw = torch.stack(list(self.state["loss_raw"])).mean().item()
-        loss = torch.stack(list(self.state["loss"])).mean().item()
+        try:
+            loss_raw = torch.stack(list(self.state["loss_raw"])).mean().item()
+            loss = torch.stack(list(self.state["loss"])).mean().item()
+        except:
+            loss_raw = 0
+            loss = 0
         step_time, lr = np.mean(list(self.state["step_time"])), self.state["lr"][-1]
         status = self.get_status(loss)
 

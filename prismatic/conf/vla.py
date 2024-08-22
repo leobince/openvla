@@ -90,6 +90,13 @@ class Exp_SigLIP_224px_Bridge(VLAConfig):
 
     train_strategy: str = "fsdp-full-shard"
 
+@dataclass
+class Jetmoe_DinoSigLIP_224px_Bridge(Exp_SigLIP_224px_Bridge):
+    vla_id: str = "prism-dinosiglip-224px+mx-bridge"
+    base_vlm: Union[str, Path] = "prism-dinosiglip-224px+7b"
+
+    # data_mix: str = "bridge"
+    data_mix: str = "fractal20220817_data"
 
 # = [8 GPU] SigLIP 224px Frozen Vision Backbone + Bridge =
 @dataclass

@@ -48,6 +48,9 @@ LLAMA2_MODELS = {
     "vicuna-v15-13b": {
         "llm_family": "llama2", "llm_cls": LlamaForCausalLM, "hf_hub_path": "lmsys/vicuna-13b-v1.5"
     },
+    "llama2-7b":{
+        "llm_family": "llama2", "llm_cls": LlamaForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/llama2_7b/models--meta-llama--Llama-2-7b-hf/snapshots/01c7f73d771dfac7d292323805ebc428287df4f9"
+    }
 }
 # fmt: on
 
@@ -60,6 +63,8 @@ class LLaMa2LLMBackbone(HFCausalLLMBackbone):
         hf_token: Optional[str] = None,
         inference_mode: bool = False,
         use_flash_attention_2: bool = True,
+        debug = False,
+      
     ) -> None:
         super().__init__(
             llm_backbone_id,
@@ -67,6 +72,7 @@ class LLaMa2LLMBackbone(HFCausalLLMBackbone):
             hf_token=hf_token,
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
+        
             **LLAMA2_MODELS[llm_backbone_id],
         )
 
@@ -77,6 +83,8 @@ class LLaMa2LLMBackbone(HFCausalLLMBackbone):
 
     @property
     def prompt_builder_fn(self) -> Type[PromptBuilder]:
+        if self.identifier == "llama2-7b":
+            return PurePromptBuilder
         if self.identifier.startswith("llama2-") and self.identifier.endswith("-pure"):
             return PurePromptBuilder
 

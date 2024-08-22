@@ -37,7 +37,7 @@ from prismatic.overwatch import initialize_overwatch
 from prismatic.preprocessing import get_dataset_and_collator
 from prismatic.training import Metrics, get_train_strategy
 from prismatic.util import set_global_seed
-
+from torch.utils.tensorboard import SummaryWriter
 # Disable Tokenizers Parallelism to Play Nice w/ PyTorch Multiprocessing DataLoaders
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -61,23 +61,32 @@ class PretrainConfig:
 
     # Pretraining Stage in < align (projector-only) | finetune (projector + LLM) | full-finetune (all) >
     # ---
-    stage: str = "finetune"                                         # Pretraining Stage in < align | finetune >
+    stage: str = "align"                                         # Pretraining Stage in < align | finetune >
     pretrained_checkpoint: Optional[Path] = None                    # Pretrained Checkpoint to Load (for `finetune`)
                                                                     #   if None =>> will match on (run_dir / `align`)
-
+    continue_from_checkpoint: bool = False                      # Continue from Checkpoint (for `finetune`) 
+    continue_step: int = 0                         # Continue from Checkpoint Step (for `finetune`)
     # Run Arguments
     run_id: Optional[str] = None                                    # Run ID for logging, Weights & Biases
-    run_root_dir: Path = Path("/mnt/fsx/x-prismatic-vlms/runs")     # Path to directory to store logs & checkpoints
+    run_root_dir: Path = Path("")     # Path to directory to store logs & checkpoints
     seed: int = 7                                                   # Random seed (for reproducibility)
 
     # HF Hub Credentials (for any gated models)
     hf_token: Union[str, Path] = Path(".hf_token")                  # Environment variable or Path to HF Token
 
     # Tracking Parameters
-    trackers: Tuple[str, ...] = ("jsonl", "wandb")                  # Trackers to initialize (if W&B, add config!)
-    wandb_project: str = "onyx-vlms"                                # Name of W&B project (default: `prismatic`)
-    wandb_entity: Optional[str] = "stanford-voltron"                # Name of W&B entity (default: None)
+    trackers: Tuple[str, ...] = ("jsonl",)                  # Trackers to initialize (if W&B, add config!)
+    wandb_project: str = "openvla"                                # Name of W&B project (default: `prismatic`)
+    wandb_entity: Optional[str] = "Bubbleseller"                # Name of W&B entity (default: None)
 
+    debug: bool = False
+    
+    enable_mixed_precision_training: bool = True
+    mixed_precision_dtype: str = "torch.bfloat16"
+    llm_load_weight: bool = True
+    train_llm_when_align: bool = False
+    # tensorboard_dir: Path = Path("tensorboard")                    # Path to Tensorboard Logs
+    # fmt: on
     def __post_init__(self) -> None:
         """Set optimization parameters based on `stage` in {"align", "finetune"}."""
         if self.stage == "align":
@@ -107,7 +116,8 @@ class PretrainConfig:
             self.warmup_ratio = self.model.finetune_warmup_ratio
 
             self.train_strategy = self.model.finetune_train_strategy
-
+        elif self.stage == 'inference':
+            pass
         else:
             raise ValueError(f"Stage `{self.stage}` is not supported!")
 
@@ -129,12 +139,19 @@ def pretrain(cfg: PretrainConfig) -> None:
     else:
         cfg.run_id = f"{dataset_id}+{model_id}+stage-{cfg.stage}+x{cfg.seed}" if cfg.run_id is None else cfg.run_id
 
+    
     # Start =>> Build Directories and Set Randomness
     overwatch.info('"Life is like a prism; what you see depends on how you turn the glass."', ctx_level=1)
-    hf_token = cfg.hf_token.read_text().strip() if isinstance(cfg.hf_token, Path) else os.environ[cfg.hf_token]
+    # hf_token = cfg.hf_token.read_text().strip() if isinstance(cfg.hf_token, Path) else os.environ[cfg.hf_token]
+    hf_token = None 
     worker_init_fn = set_global_seed(cfg.seed, get_worker_init_fn=True)
     os.makedirs(run_dir := (cfg.run_root_dir / cfg.run_id), exist_ok=True)
     os.makedirs(cfg.run_root_dir / cfg.run_id / "checkpoints", exist_ok=True)
+    
+    tensorboard_dir = run_dir / "tensorboard"
+    os.makedirs(tensorboard_dir, exist_ok=True)
+    writer = SummaryWriter(tensorboard_dir)
+    overwatch.info(f"Saving Logs & Checkpoints to [bold]{run_dir}[/]")
     if overwatch.is_rank_zero():
         # Additionally save a JSON version of the config
         draccus.dump(cfg, open(run_dir / "config.yaml", "w"))
@@ -151,9 +168,10 @@ def pretrain(cfg: PretrainConfig) -> None:
     # Load LLM Backbone --> on CPU, in Full Precision (initializing Tokenizer + handling special tokens if necessary)
     overwatch.info(f"Loading Pretrained LLM [bold]{cfg.model.llm_backbone_id}[/] via HF Transformers")
     llm_backbone, tokenizer = get_llm_backbone_and_tokenizer(
-        cfg.model.llm_backbone_id, llm_max_length=cfg.model.llm_max_length, hf_token=hf_token
+        cfg.model.llm_backbone_id, llm_max_length=cfg.model.llm_max_length, hf_token=hf_token, debug = cfg.debug, inference_mode= not cfg.llm_load_weight
     )
-
+    
+    # 生成一个随机数
     # Create VLM => wraps `vision_backbone` and `llm`
     overwatch.info(f"Instantiating PrismaticVLM `{model_id}` for Training Stage = `{cfg.stage}`")
     vlm = get_vlm(
@@ -162,15 +180,16 @@ def pretrain(cfg: PretrainConfig) -> None:
         vision_backbone,
         llm_backbone,
         enable_mixed_precision_training=cfg.model.enable_mixed_precision_training,
+        continue_from_checkpoint=cfg.continue_from_checkpoint,
     )
 
     # [Explicit] Call to `freeze_backbones` here for clarity => will log exactly what is frozen / what's not!
     overwatch.info(f"Invoking `VLM.freeze_backbones()` for `{model_id}` => Training Stage: `{cfg.stage}`")
-    vlm.freeze_backbones(cfg.stage)
+    vlm.freeze_backbones(cfg.stage, cfg.train_llm_when_align)
 
     # Load Weights from Checkpoint (depends on stage, config)
     overwatch.info(f"Invoking `VLM.load_checkpoint()` for `{model_id}` => Training Stage: `{cfg.stage}`")
-    vlm.load_from_checkpoint(cfg.stage, run_dir, pretrained_checkpoint=cfg.pretrained_checkpoint)
+    vlm.load_from_checkpoint(cfg.stage, run_dir, pretrained_checkpoint=cfg.pretrained_checkpoint, continue_from_checkpoint=cfg.continue_from_checkpoint)
 
     # Get Dataset for Specified Stage
     overwatch.info(f"Creating Dataset `{cfg.dataset.dataset_id}` => Stage: `{cfg.stage}`")
@@ -201,8 +220,9 @@ def pretrain(cfg: PretrainConfig) -> None:
         lr_scheduler_type=cfg.lr_scheduler_type,
         warmup_ratio=cfg.warmup_ratio,
         enable_gradient_checkpointing=cfg.model.enable_gradient_checkpointing,
-        enable_mixed_precision_training=cfg.model.enable_mixed_precision_training,
+        enable_mixed_precision_training=cfg.enable_mixed_precision_training,
         reduce_in_full_precision=cfg.model.reduce_in_full_precision,
+        mixed_precision_dtype=torch.bfloat16 if cfg.mixed_precision_dtype == "torch.bfloat16" else torch.float16,
         worker_init_fn=worker_init_fn,
     )
     train_strategy.run_setup(run_dir=run_dir, n_train_examples=len(train_dataset))
@@ -222,7 +242,7 @@ def pretrain(cfg: PretrainConfig) -> None:
 
     # Run Training
     overwatch.info("Starting Training Loop")
-    train_strategy.run_training(train_dataset, collator, metrics, stage=cfg.stage, seed=cfg.seed)
+    train_strategy.run_training(train_dataset, collator, metrics, stage=cfg.stage, seed=cfg.seed, continue_step=cfg.continue_step, tensorboard_writer=writer)
 
     # Finalize
     overwatch.info("Done with Training =>> Finalizing Metrics")

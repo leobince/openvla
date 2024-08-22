@@ -17,7 +17,7 @@ from typing import Dict, List, Tuple, Type
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-from transformers import CodeGenTokenizerFast, LlamaTokenizerFast, PreTrainedTokenizerBase
+from transformers import CodeGenTokenizerFast, LlamaTokenizerFast, PreTrainedTokenizerBase, GemmaTokenizerFast
 
 from prismatic.models.backbones.llm.prompting import PromptBuilder
 from prismatic.models.backbones.vision import ImageTransform
@@ -82,10 +82,12 @@ class AlignDataset(Dataset[Dict[str, torch.Tensor]]):
 
         # Set the <BOS> token's label to IGNORE_INDEX (since we're inserting the image patches right after)
         labels[0] = IGNORE_INDEX
-
+        try:
         # Process Image --> get "pixel_values" (will either be a torch.Tensor OR a Dict[str,torch.Tensor])
-        pixel_values = self.image_transform(Image.open(self.image_dir / image_path).convert("RGB"))
-
+            pixel_values = self.image_transform(Image.open(self.image_dir / image_path).convert("RGB"))
+        except:
+            labels = [IGNORE_INDEX for _ in labels]
+            return dict(pixel_values=None, input_ids=input_ids, labels=labels)
         return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels)
 
     def get_modality_lengths(self, n_image_patches: int) -> List[Tuple[bool, int]]:
@@ -144,7 +146,8 @@ class FinetuneDataset(Dataset[Dict[str, torch.Tensor]]):
             # Llama Tokenizer (Fast) adds extra character if a string ends in whitespace --> strip if non-empty!
             if isinstance(self.tokenizer, LlamaTokenizerFast):
                 msg = msg.rstrip()
-
+            elif isinstance(self.tokenizer, GemmaTokenizerFast):
+                msg = msg.rstrip()
             # Phi-2 Tokenizer == CodeGenTokenizer (Fast) -- no special handling!
             elif isinstance(self.tokenizer, CodeGenTokenizerFast):
                 pass
@@ -177,10 +180,14 @@ class FinetuneDataset(Dataset[Dict[str, torch.Tensor]]):
 
             # Set the <BOS> token's label to IGNORE_INDEX (since we're inserting the image patches right after)
             labels[0] = IGNORE_INDEX
-
+            # 如果图片不能打开，则将将pixel values 设置为 none，labels 全为 ignore
+            try:
             # Process Image --> get "pixel_values" (will either be a torch.Tensor OR a Dict[str,torch.Tensor])
-            pixel_values = self.image_transform(Image.open(self.image_dir / image_path).convert("RGB"))
-
+                pixel_values = self.image_transform(Image.open(self.image_dir / image_path).convert("RGB"))
+            except:
+                for i in range(0, len(labels)):
+                    labels[i] = IGNORE_INDEX
+                return dict(pixel_values=None, input_ids=input_ids, labels=labels)
             return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels)
 
         else:
