@@ -1,0 +1,58 @@
+continue_from_checkpoint: true
+continue_step: 3000
+dataset:
+  align_stage_components:
+  - llava_558k/blip_laion_cc_sbu_558k_filtered_2.json
+  - llava_558k
+  dataset_id: llava_more
+  dataset_root_dir: /mnt/csp/mmvision/home/lwh
+  finetune_stage_components:
+  - llava_mix665k/llava_v1_5_mix665k_filter_merge.json
+  - llava_mix665k
+  type: llava_more
+debug: false
+enable_mixed_precision_training: true
+hf_token: .hf_token
+llm_load_weight: true
+mixed_precision_dtype: torch.bfloat16
+model:
+  align_epochs: 1
+  align_global_batch_size: 8
+  align_learning_rate: 0.001
+  align_lr_scheduler_type: linear-warmup+cosine-decay
+  align_max_grad_norm: 1.0
+  align_max_steps: null
+  align_per_device_batch_size: 1
+  align_train_strategy: fsdp-shard-grad-op
+  align_warmup_ratio: 0.03
+  align_weight_decay: 0.0
+  arch_specifier: fused-gelu-mlp
+  enable_gradient_checkpointing: true
+  enable_mixed_precision_training: true
+  finetune_epochs: 1
+  finetune_global_batch_size: 128
+  finetune_learning_rate: 2.0e-05
+  finetune_lr_scheduler_type: linear-warmup+cosine-decay
+  finetune_max_grad_norm: 1.0
+  finetune_max_steps: null
+  finetune_per_device_batch_size: 2
+  finetune_train_strategy: fsdp-full-shard
+  finetune_warmup_ratio: 0.03
+  finetune_weight_decay: 0.1
+  image_resize_strategy: resize-naive
+  llm_backbone_id: jetmoe-8b
+  llm_max_length: 2048
+  model_id: jetmoe-dinosiglip-224px
+  reduce_in_full_precision: false
+  type: jetmoe-dinosiglip-224px
+  vision_backbone_id: crop_dinosiglip-vit
+pretrained_checkpoint: /mnt/csp/mmvision/home/lwh/qbc/moe/runs/crop/checkpoints/step-003000-epoch-00-loss=9.3677.pt
+run_id: crop
+run_root_dir: /mnt/csp/mmvision/home/lwh/qbc/openvla/runs
+seed: 7
+stage: align
+trackers:
+- jsonl
+train_llm_when_align: false
+wandb_entity: Bubbleseller
+wandb_project: openvla
