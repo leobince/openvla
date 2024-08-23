@@ -3,7 +3,7 @@ export NCCL_P2P_DISABLE=0
 export NCCL_IB_DISABLE=0
 export PYTHONPATH=/mnt/csp/mmvision/home/lwh/openvla:$PYTHONPATH
 torchrun --standalone --nnodes 1 --nproc-per-node 8 /mnt/csp/mmvision/home/lwh/openvla/scripts/pretrain.py \
-  --model.type "gemma2-dinosiglip-224px" \
+  --model.type "gemma2-crop-dinosiglip-384px" \
   --dataset.type "llava_more" \
   --stage "finetune" \
   --run_root_dir "/mnt/csp/mmvision/home/lwh/openvla_runs/gemma2newcode" \

@@ -79,8 +79,8 @@ class Jetmoe_SigLIP_224px_Bridge(VLAConfig):
     max_steps: Optional[int] = None
 
     expected_world_size: int = 8
-    global_batch_size: int = 256
-    per_device_batch_size: int = 32
+    global_batch_size: int = 16
+    per_device_batch_size: int = 2
 
     learning_rate: float = 2e-5
     weight_decay: float = 0.0

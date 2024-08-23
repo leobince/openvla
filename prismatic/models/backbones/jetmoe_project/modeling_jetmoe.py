@@ -958,8 +958,8 @@ class JetMoEModel(JetMoEPreTrainedModel):
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([JetMoEBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self._attn_implementation = config._attn_implementation
-        print(self._attn_implementation)
+        self._attn_implementation = "eager"
+        
         self.norm = JetMoERMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False

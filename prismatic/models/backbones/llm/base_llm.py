@@ -147,7 +147,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
                 
                 if llm_backbone_id == 'jetmoe-8b':
                     AutoConfig.register("jetmoe-bubble", JetMoEConfig_bubble)
-                    llm_config = AutoConfig.from_pretrained(hf_hub_path)
+                    llm_config = AutoConfig.from_pretrained(hf_hub_path, _attn_implementation='eager')
                 elif llm_backbone_id == "gemmamoe":
                     AutoConfig.register(llm_backbone_id, GemmaMoEConfig)
                     llm_config = AutoConfig.from_pretrained(hf_hub_path)

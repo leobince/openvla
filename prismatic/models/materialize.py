@@ -20,6 +20,10 @@ from prismatic.models.backbones.vision import (
     SigLIPViTBackbone,
     VisionBackbone,
     NRPR_DinoSigLIPViTBackbone,
+    CROP_PR_DinoSigLIPViTBackbone,
+    CROP_PR_DinoSigLIP_V2_ViTBackbone,
+    CROP_PR_DinoSigLIP_V3_ViTBackbone,
+    CropDinoSigLIPViTBackbone,
 )
 from prismatic.models.vlms import PrismaticVLM
 
@@ -53,6 +57,18 @@ VISION_BACKBONES = {
     
     # === Native Resolution with Perceiver Resampler Backbones ===
     "nrpr_dinosiglip-vit": {"cls": NRPR_DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 224}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_pr_dinosiglip-vit": {"cls": CROP_PR_DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 384}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_pr_dinosiglip_v2-vit": {"cls": CROP_PR_DinoSigLIP_V2_ViTBackbone, "kwargs": {"default_image_size": 224}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_pr_dinosiglip_v3-vit": {"cls": CROP_PR_DinoSigLIP_V3_ViTBackbone, "kwargs": {"default_image_size": 384}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_dinosiglip-vit": {"cls": CropDinoSigLIPViTBackbone, "kwargs": {"default_image_size": 384}},
 }
 
 
