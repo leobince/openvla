@@ -75,12 +75,12 @@ class Exp_SigLIP_224px_Bridge(VLAConfig):
     shuffle_buffer_size: int = 256_000
 
     # Optimization Parameters
-    epochs: int = 1000
+    epochs: int = 20
     max_steps: Optional[int] = None
 
     expected_world_size: int = 8
-    global_batch_size: int = 256
-    per_device_batch_size: int = 32
+    global_batch_size: int = 32
+    per_device_batch_size: int = 4
 
     learning_rate: float = 2e-5
     weight_decay: float = 0.0
@@ -106,8 +106,20 @@ class Exp_DinoSigLIP_224px_Bridge(Exp_SigLIP_224px_Bridge):
     base_vlm: Union[str, Path] = "prism-dinosiglip-224px+7b"
 
     # data_mix: str = "bridge"
-    data_mix: str = "fractal20220817_data"
+    data_mix: str = "taco_play"
 
+
+@dataclass
+class Jetmoe_try(Exp_SigLIP_224px_Bridge):
+    vla_id: str = "jetmoe-try"
+    base_vlm: Union[str, Path] = "jetmoe-dinosiglip-224px"
+
+    # data_mix: str = "bridge"
+    data_mix: str = "taco_play"
+    expected_world_size: int = 2
+    global_batch_size: int = 2
+    per_device_batch_size: int = 1
+    
 
 # = [64 GPU] SigLIP 224px + OXE Magic Soup =
 @dataclass
@@ -205,6 +217,7 @@ class VLARegistry(Enum):
     # Sanity Check Configurations =>> BridgeV2
     SIGLIP_224PX_MX_BRIDGE = Exp_SigLIP_224px_Bridge
     DINOSIGLIP_224PX_MX_BRIDGE = Exp_DinoSigLIP_224px_Bridge
+    DINOSIGLIP_224PX_try = Jetmoe_try
 
     # SigLIP Frozen Backbone Experiment
     FREEZE_SIGLIP_224PX_MX_BRIDGE = Exp_FreezeVIT_SigLIP_224px_Bridge

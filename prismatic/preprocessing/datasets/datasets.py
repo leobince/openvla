@@ -85,7 +85,9 @@ class AlignDataset(Dataset[Dict[str, torch.Tensor]]):
 
         # Process Image --> get "pixel_values" (will either be a torch.Tensor OR a Dict[str,torch.Tensor])
         pixel_values = self.image_transform(Image.open(self.image_dir / image_path).convert("RGB"))
-
+        
+        #pixel_values.get('images', None).shape = torch.Size([15, 224, 224])
+        
         return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels)
 
     def get_modality_lengths(self, n_image_patches: int) -> List[Tuple[bool, int]]:

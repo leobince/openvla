@@ -293,9 +293,11 @@ class TrainingStrategy(ABC):
                         attention_mask=batch["attention_mask"],
                         pixel_values=batch["pixel_values"],
                         labels=batch["labels"],
+                        use_cache=False,
                     )
                     loss = output.loss
-
+                # print(batch["attention_mask"].shape)
+                # print(batch["attention_mask"])
                 # Commit Loss =>> Backward!
                 metrics.commit(loss=loss)
                 loss.backward()

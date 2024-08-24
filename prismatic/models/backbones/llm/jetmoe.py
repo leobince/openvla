@@ -40,8 +40,8 @@ from folder1 import file1
 # fmt: off
 JetmoeModel = {
     # === Pure Meta LLaMa-2 (non-instruct/chat-tuned) Models ===
-    "Jetmoe-8b": {
-        "llm_family": "jetmoe", "llm_cls": JetMoEForCausalLM, "hf_hub_path": "/home/lwh/Jetmoe/jetmoe-8b"
+    "jetmoe-8b": {
+        "llm_family": "jetmoe", "llm_cls": JetMoEForCausalLM, "hf_hub_path": "jetmoe/jetmoe-8b"
     },
 
     
@@ -57,6 +57,7 @@ class JetmoeBackbone(HFCausalLLMBackbone):
         hf_token: Optional[str] = None,
         inference_mode: bool = False,
         use_flash_attention_2: bool = True,
+        load_weight: bool = True,
     ) -> None:
         super().__init__(
             llm_backbone_id,
@@ -64,6 +65,7 @@ class JetmoeBackbone(HFCausalLLMBackbone):
             hf_token=hf_token,
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
+            load_weight=load_weight,
             **JetmoeModel[llm_backbone_id],
         )
 

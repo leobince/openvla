@@ -26,6 +26,9 @@ from prismatic.models.backbones.vision import VisionBackbone
 from prismatic.models.vlms.base_vlm import VLM
 from prismatic.overwatch import initialize_overwatch
 from prismatic.util.nn_utils import FusedMLPProjector, LinearProjector, MLPProjector
+from transformers.models.idefics2.configuration_idefics2 import Idefics2Config
+from transformers.models.idefics2.modeling_idefics2 import Idefics2Connector
+import torch.nn as nn
 
 from ...util.utils import load_statedict
 
@@ -37,6 +40,48 @@ overwatch = initialize_overwatch(__name__)
 IGNORE_INDEX = -100
 
 
+class PRProjector(nn.Module):
+    def __init__(self, vision_dim: int, llm_dim: int, mlp_type: str = "gelu-mlp", device=None) -> None:
+        super().__init__()
+        self.device = device  # Store device
+        vision_config = {"hidden_size": 2176}
+        self.config = Idefics2Config(vision_config = vision_config)
+        self.connector = Idefics2Connector(self.config).to(self.device)  # Ensure connector is on the correct device
+
+        if mlp_type == "gelu-mlp":
+            self.projector = nn.Sequential(
+                nn.Linear(vision_dim, llm_dim, bias=True),
+                nn.GELU(),
+                nn.Linear(llm_dim, llm_dim, bias=True),
+            )
+        else:
+            raise ValueError(f"Projector with `{mlp_type = }` is not supported!")
+
+        self.projector = self.projector.to(device)  # Move projector to specified device
+
+    def project(self, img_patches: torch.Tensor) -> torch.Tensor:
+
+        # Assumed dimensions and patch size
+
+        patch_size = self.config.vision_config.patch_size
+        # Create an all-ones tensor in the shape of the expected patch grid
+
+        patch_attention_mask = torch.ones(img_patches.shape[:2], dtype=torch.float32,device=self.device)
+        img_patches = self.connector(img_patches, attention_mask=patch_attention_mask)
+        return img_patches
+    
+    def forward(self, img_patches: torch.Tensor) -> torch.Tensor:
+
+        chunks = torch.chunk(img_patches, chunks=5, dim=0)
+        result = torch.empty((1, 0, 4096), dtype=torch.bfloat16, device=self.device)
+        for i, chunk in enumerate(chunks):
+            processed_chunk = self.project(chunk)
+            result = torch.cat((result, processed_chunk), dim=1)
+
+        return self.projector(result)
+    
+
+    
 class PrismaticVLM(VLM):
     def __init__(
         self,
@@ -44,7 +89,8 @@ class PrismaticVLM(VLM):
         vision_backbone: VisionBackbone,
         llm_backbone: LLMBackbone,
         enable_mixed_precision_training: bool = True,
-        arch_specifier: str = "gelu-mlp",
+        arch_specifier: str = "pr",
+        # llm_load_weight: bool = True,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -57,7 +103,6 @@ class PrismaticVLM(VLM):
 
         # Set Weight Initialization Seed for Projector Consistency
         torch.manual_seed(vision_backbone.embed_dim)
-
         # Initialize Projection (Adapter) based on `arch_specifier`
         self.arch_specifier = arch_specifier
         if arch_specifier == "linear":
@@ -66,6 +111,9 @@ class PrismaticVLM(VLM):
             self.projector = FusedMLPProjector(vision_backbone.embed_dim, llm_backbone.embed_dim)
         elif arch_specifier.endswith("gelu-mlp"):
             self.projector = MLPProjector(vision_backbone.embed_dim, llm_backbone.embed_dim)
+        elif arch_specifier.endswith("pr"):
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.projector = PRProjector(vision_backbone.embed_dim, llm_backbone.embed_dim, device=device)
         else:
             raise ValueError(f"PrismaticVLM with `{arch_specifier = }` is not supported!")
 
@@ -94,6 +142,7 @@ class PrismaticVLM(VLM):
         enable_mixed_precision_training: bool = True,
         arch_specifier: str = "gelu-mlp",
         freeze_weights: bool = True,
+        llm_load_weight: bool = True,
         **kwargs,
     ) -> PrismaticVLM:
         """Initialize a PrismaticVLM from a pretrained checkpoint, freezing all weights, tailored for inference."""
@@ -105,34 +154,31 @@ class PrismaticVLM(VLM):
             arch_specifier=arch_specifier,
             **kwargs,
         )
-        flag = False
-        if isinstance(pretrained_checkpoint, list):
-            flag = True
-            model_state_dict = load_statedict(pretrained_checkpoint)
-        # Load from Checkpoint (Custom --> should load both *projector* and *llm* weights)
-        else:
-            model_state_dict = torch.load(pretrained_checkpoint, map_location="cpu")["model"]
-        assert (
-            "projector" in model_state_dict and "llm_backbone" in model_state_dict
-        ), "PrismaticVLM `from_pretrained` expects checkpoint with keys for `projector` AND `llm_backbone`!"
         
-        if flag == True:
-            projector_state_dict = {k: v for k, v in model_state_dict.items() if k.startswith('projector')}
-            vlm.projector.load_state_dict(projector_state_dict)
-        else:
-            vlm.projector.load_state_dict(model_state_dict["projector"])
+        # Load from Checkpoint (Custom --> should load both *projector* and *llm* weights)
+        
+        model_state_dict = torch.load(pretrained_checkpoint, map_location="cpu")["model"]
+        
+        debug = True
+        if debug == False:
+            assert (
+                "projector" in model_state_dict and "llm_backbone" in model_state_dict
+            ), "PrismaticVLM `from_pretrained` expects checkpoint with keys for `projector` AND `llm_backbone`!"
+        
+        # if flag == True:
+            # projector_state_dict = {k: v for k, v in model_state_dict.items() if k.startswith('projector')}
+            # vlm.projector.load_state_dict(projector_state_dict)
+       
+        vlm.projector.load_state_dict(model_state_dict["projector"])
 
         
         # if not from_moe:
-        if flag == True:
-            llm_state_dict = {k: v for k, v in model_state_dict.items() if k.startswith('language_model')}
-            vlm.llm_backbone.load_state_dict(llm_state_dict)
-        else:
-            vlm.llm_backbone.load_state_dict(model_state_dict["llm_backbone"])
-        if flag == True:
-            vision_state_dict = {k: v for k, v in model_state_dict.items() if k.startswith('vision_backbone')}
-            vlm.vision_backbone.load_state_dict(vision_state_dict)
-        elif "vision_backbone" in model_state_dict.keys():
+        
+        if debug is False:
+            if  llm_load_weight: # llm load weight 为 False 表明已经载入了llm 的weight 不需要再载入weight
+                vlm.llm_backbone.load_state_dict(model_state_dict["llm_backbone"])
+        
+        if "vision_backbone" in model_state_dict.keys():
             vlm.vision_backbone.load_state_dict(model_state_dict["vision_backbone"])
 
         # Freeze Weights
@@ -157,12 +203,12 @@ class PrismaticVLM(VLM):
         :param stage: Pretraining stage in < "align" | "finetune" | "full-finetune" | "vla-train" | "vla-full-train" >
         """
         if stage == "align":
-            self.vision_backbone.requires_grad_(False)
+            self.vision_backbone.requires_grad_(True)
             self.llm_backbone.requires_grad_(False)
             self.projector.requires_grad_(True)
 
             # Add to `self.trainable_module_keys`
-            self.trainable_module_keys = ["projector"]
+            self.trainable_module_keys = ["projector", "vision_backbone"]
 
             # Update Trackers
             self.vision_backbone_requires_grad = False
@@ -363,6 +409,7 @@ class PrismaticVLM(VLM):
             return output
 
         elif input_ids.shape[1] == 1 or pixel_values is None:
+            
             raise RuntimeError("Invalid `forward()` call!")
 
         # Handle Multimodal Indices is None --> pretend like the batch is fully multimodal (always image + text)!
@@ -383,16 +430,21 @@ class PrismaticVLM(VLM):
                 output_hidden_states=output_hidden_states,
                 return_dict=return_dict,
             )
-
+        
         # Run Visual Feature Extraction
         with torch.set_grad_enabled(self.vision_backbone_requires_grad):
             if isinstance(pixel_values, dict):
                 patch_features = self.vision_backbone({k: pixel_values[k][multimodal_indices] for k in pixel_values})
             else:
                 patch_features = self.vision_backbone(pixel_values[multimodal_indices])
-
+        #for crop_pr_v3: 224: patch_features.shape =  torch.Size([5, 453, 768])  384: patch_features.shape =  torch.Size([5, 730, 2176])
+        #for dino_siglip: patch_features.shape =  torch.Size([1, 729, 2176])
+        
         # Projection Logic :: [bsz, num_patches, llm_embed_dim] =>> num_patches = (2 *) (256 + 1) for ViT-L + CLS
         projected_patch_embeddings = self.projector(patch_features)
+
+        #for crop_pr_v3: projected_patch_embeddings.shape =  torch.Size([1, 320, 2048])
+        #for dino_siglip: projected_patch_embeddings.shape =  torch.Size([1, 729, 2048])
         projected_patch_attention_mask = None
         if attention_mask is not None:
             projected_patch_attention_mask = torch.full(

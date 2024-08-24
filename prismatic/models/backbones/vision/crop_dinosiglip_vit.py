@@ -13,7 +13,10 @@ import torch
 from PIL import Image
 from timm.models.vision_transformer import Block, VisionTransformer
 from torch.distributed.fsdp.wrap import _module_wrap_policy, _or_policy, transformer_auto_wrap_policy
-from torchvision.transforms import Compose, Resize
+from torchvision.transforms import Compose, Resize, Lambda,  ToTensor
+from torchvision.transforms.functional import to_tensor, hflip
+from einops import rearrange
+
 
 from prismatic.models.backbones.vision.base_vision import ImageTransform, LetterboxPad, VisionBackbone, unpack_tuple
 
@@ -27,7 +30,7 @@ DINOSigLIP_VISION_BACKBONES = {
         "dino": "vit_base_patch16_clip_224",
         "siglip": "vit_base_patch16_clip_224",
     },
-    "dinosiglip-vit-so-384px": {
+    "crop_dinosiglip-vit": {
         "dino": "vit_large_patch14_reg4_dinov2.lvd142m",
         "siglip": "vit_so400m_patch14_siglip_384",
     },
@@ -44,8 +47,8 @@ class DinoSigLIPImageTransform:
         return {"dino": self.dino_image_transform(img, **kwargs), "siglip": self.siglip_image_transform(img, **kwargs)}
 
 
-class DinoSigLIPViTBackbone(VisionBackbone):
-    def __init__(self, vision_backbone_id: str, image_resize_strategy: str, default_image_size: int = 224) -> None:
+class CropDinoSigLIPViTBackbone(VisionBackbone):
+    def __init__(self, vision_backbone_id: str, image_resize_strategy: str, default_image_size: int = 384) -> None:
         super().__init__(vision_backbone_id, image_resize_strategy, default_image_size=default_image_size)
         
         debug = False
@@ -96,6 +99,7 @@ class DinoSigLIPViTBackbone(VisionBackbone):
         # Fix =>> SigLIP default transform resizes to *larger* than `self.default_image_size` (crops image)!!
         assert isinstance(default_siglip_transform, Compose), "Unexpected `default_image_transform`!"
         assert isinstance(default_siglip_transform.transforms[0], Resize)
+        #default_siglip_transform.transforms[0].interpolation =  InterpolationMode.BICUBIC default_dino_transform.transforms[0].interpolation =  InterpolationMode.BICUBIC
         default_siglip_transform = Compose(
             [
                 Resize(self.default_image_size, interpolation=default_siglip_transform.transforms[0].interpolation),
@@ -109,19 +113,37 @@ class DinoSigLIPViTBackbone(VisionBackbone):
             assert isinstance(default_dino_transform.transforms[0], Resize)
             assert isinstance(default_siglip_transform.transforms[0], Resize)
 
-            target_size = (self.default_image_size, self.default_image_size)
-            dino_transform = Compose(
-                [
-                    Resize(target_size, interpolation=default_dino_transform.transforms[0].interpolation),
-                    *default_dino_transform.transforms[1:],
-                ]
-            )
-            siglip_transform = Compose(
-                [
-                    Resize(target_size, interpolation=default_siglip_transform.transforms[0].interpolation),
-                    *default_siglip_transform.transforms[1:],
-                ]
-            )
+            target_size = self.default_image_size
+            dino_transform = Compose([
+                    # 首先，按照(2*target_size, 2*target_size)来调整图片大小
+                Resize((2*target_size, 2*target_size), interpolation=default_dino_transform.transforms[0].interpolation),
+                
+                # 使用Lambda函数处理图像
+                Lambda(lambda img: torch.cat([
+                    ToTensor()(Resize((target_size, target_size), interpolation=default_dino_transform.transforms[0].interpolation)(img)),  # 原图resize并转为Tensor
+                    torch.stack([
+                        ToTensor()(img.crop((0, 0, target_size, target_size))),
+                        ToTensor()(img.crop((target_size, 0, 2*target_size, target_size))),
+                        ToTensor()(img.crop((0, target_size, target_size, 2*target_size))),
+                        ToTensor()(img.crop((target_size, target_size, 2*target_size, 2*target_size)))
+                    ]).view(-1, target_size, target_size)  # 分割的小图处理并展平
+                ], dim=0))
+            ])
+            siglip_transform = Compose([
+                    # 首先，按照(2*target_size, 2*target_size)来调整图片大小
+                Resize((2*target_size, 2*target_size), interpolation=default_siglip_transform.transforms[0].interpolation),
+                
+                # 使用Lambda函数处理图像
+                Lambda(lambda img: torch.cat([
+                    ToTensor()(Resize((target_size, target_size), interpolation=default_siglip_transform.transforms[0].interpolation)(img)),  # 原图resize并转为Tensor
+                    torch.stack([
+                        ToTensor()(img.crop((0, 0, target_size, target_size))),
+                        ToTensor()(img.crop((target_size, 0, 2*target_size, target_size))),
+                        ToTensor()(img.crop((0, target_size, target_size, 2*target_size))),
+                        ToTensor()(img.crop((target_size, target_size, 2*target_size, 2*target_size)))
+                    ]).view(-1, target_size, target_size)  # 分割的小图处理并展平
+                ], dim=0))
+            ])
 
             self.image_transform = DinoSigLIPImageTransform(dino_transform, siglip_transform)
 
@@ -156,13 +178,16 @@ class DinoSigLIPViTBackbone(VisionBackbone):
 
     def forward(self, pixel_values: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Runs the transformed image/pixel tensors through each vision backbone, returning concatenated patches."""
+        
+        pixel_values["dino"] = rearrange(pixel_values["dino"], 'n (p rgb) h w -> (n p) rgb h w', rgb=3)
+        pixel_values["siglip"] = rearrange(pixel_values["siglip"], 'n (p rgb) h w -> (n p) rgb h w', rgb=3)
+        
         dino_patches = self.dino_featurizer(pixel_values["dino"])
         siglip_patches = self.siglip_featurizer(pixel_values["siglip"])
-        #resize-crop:   pixel_values_dino =  torch.Size([1, 3, 384, 384]) pixel_values_siglip =  torch.Size([1, 3, 384, 384])
-        #resize-naive:   pixel_values_dino =  torch.Size([1, 3, 384, 384]) pixel_values_siglip =  torch.Size([1, 3, 384, 384])
-        print("$$$$$$$$$$$$$$$$$$$$pixel_values_dino = ", pixel_values["dino"].shape) 
-        print("$$$$$$$$$$$$$$$$$$$pixel_values_siglip = ", pixel_values["siglip"].shape)
-        print("emb_dim = ", self.dino_featurizer.embed_dim, "+", self.siglip_featurizer.embed_dim)
+        #dino_patches =  torch.Size([5, 729, 1024]) siglip_patches  =  torch.Size([5, 729, 1152])
+        dino_patches = rearrange(dino_patches, '(crop batch) token dim -> batch (crop token) dim', crop=5) 
+        siglip_patches = rearrange(siglip_patches, '(crop batch) token dim -> batch (crop token) dim', crop=5) 
+        #dino_patches =  torch.Size([1, 3645, 1024]) siglip_patches  =  torch.Size([1, 3645, 1152])
         return torch.cat([dino_patches, siglip_patches], dim=2)
 
     @property

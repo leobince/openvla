@@ -163,6 +163,22 @@ def taco_play_dataset_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
     trajectory["language_instruction"] = trajectory["observation"]["natural_language_instruction"]
     return trajectory
 
+def calvin_validation_dataset_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
+    trajectory["observation"]["state_eef"] = trajectory["observation"]["robot_obs"][:, :6]
+    trajectory["observation"]["state_gripper"] = trajectory["observation"]["robot_obs"][:, 7:8]
+    trajectory["action"] = trajectory["action"]["rel_actions_world"]
+
+    # invert gripper action + clip, +1 = open, 0 = close
+    trajectory["action"] = tf.concat(
+        (
+            trajectory["action"][:, :6],
+            tf.clip_by_value(trajectory["action"][:, -1:], 0, 1),
+        ),
+        axis=-1,
+    )
+
+    trajectory["language_instruction"] = trajectory["observation"]["natural_language_instruction"]
+    return trajectory
 
 def jaco_play_dataset_transform(trajectory: Dict[str, Any]) -> Dict[str, Any]:
     trajectory["observation"]["state_eef"] = trajectory["observation"]["end_effector_cartesian_pos"][:, :6]
@@ -835,6 +851,7 @@ OXE_STANDARDIZATION_TRANSFORMS = {
     "fractal20220817_data": rt1_dataset_transform,
     "kuka": kuka_dataset_transform,
     "taco_play": taco_play_dataset_transform,
+    "calvin_validation": calvin_validation_dataset_transform,
     "jaco_play": jaco_play_dataset_transform,
     "berkeley_cable_routing": berkeley_cable_routing_dataset_transform,
     "roboturk": roboturk_dataset_transform,

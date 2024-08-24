@@ -30,6 +30,48 @@ class DatasetConfig(ChoiceRegistry):
     # fmt: on
 
 
+@dataclass
+class Jetmoe_LLaVa_Config(DatasetConfig):
+    dataset_id: str = "jetmoe_llava"
+
+    align_stage_components: Tuple[Path, Path] = (
+        Path("llava_558k/blip_laion_cc_sbu_558k_filtered_2.json"),
+        Path("llava_558k/"),
+    )
+    finetune_stage_components: Tuple[Path, Path] = (
+        Path("llava_mix665k/llava_v1_5_mix665k_filter_2.json"),
+        Path("llava_mix665k/"),
+    )
+    dataset_root_dir: Path = Path("/mnt/csp/mmvision/home/lwh/")
+
+@dataclass
+class _LLaVa_More_Config(DatasetConfig):
+    dataset_id: str = "llava_more"
+
+    align_stage_components: Tuple[Path, Path] = (
+        Path("llava_558k/blip_laion_cc_sbu_558k_filtered_2.json"),
+        Path("llava_558k/"),
+    )
+    finetune_stage_components: Tuple[Path, Path] = (
+        Path("llava_mix665k/llava_v1_5_mix665k_filter_merge.json"),
+        Path("llava_mix665k/"),
+    )
+    dataset_root_dir: Path = Path("/mnt/csp/mmvision/home/lwh/")
+
+@dataclass
+class Onevision_Config(DatasetConfig):
+    dataset_id: str = "llavanext_onevision"
+
+    align_stage_components: Tuple[Path, Path] = (
+        Path("llava_558k/blip_laion_cc_sbu_558k_filtered_2.json"),
+        Path("llava_558k/"),
+    )
+    finetune_stage_components: Tuple[Path, Path] = (
+        Path("llava_mix665k/llava_v1_5_onevision.json"),
+        Path("llava_mix665k/"),
+    )
+    dataset_root_dir: Path = Path("/mnt/csp/mmvision/home/lwh/")
+    
 # [Reproduction] LLaVa-v15 (exact dataset used in all public LLaVa-v15 models)
 @dataclass
 class LLaVa_V15_Config(DatasetConfig):
@@ -122,7 +164,10 @@ class DatasetRegistry(Enum):
     LLAVA_LRV = LLaVa_LRV_Config
 
     LLAVA_LVIS4V_LRV = LLaVa_LVIS4V_LRV_Config
-
+    
+    JETMOE_LLAVA = Jetmoe_LLaVa_Config
+    LLAVA_MORE = _LLaVa_More_Config
+    LLAVANEXT_ONEVISION = Onevision_Config
     @property
     def dataset_id(self) -> str:
         return self.value.dataset_id

@@ -24,7 +24,7 @@ from prismatic.models.backbones.llm.prompting import (
 LLAMA2_MODELS = {
     # === Pure Meta LLaMa-2 (non-instruct/chat-tuned) Models ===
     "llama2-7b-pure": {
-        "llm_family": "llama2", "llm_cls": LlamaForCausalLM, "hf_hub_path": "/home/zmz/.cache/huggingface/transformers/openvla-7b/llama2-7b"
+        "llm_family": "llama2", "llm_cls": LlamaForCausalLM, "hf_hub_path": "/HOME/scw6cs5/run/lwh/llama2-7b/llama2-7b"
     },
 
     "llama2-13b-pure": {
@@ -60,6 +60,7 @@ class LLaMa2LLMBackbone(HFCausalLLMBackbone):
         hf_token: Optional[str] = None,
         inference_mode: bool = False,
         use_flash_attention_2: bool = True,
+        load_weight:bool = True,
     ) -> None:
         super().__init__(
             llm_backbone_id,
@@ -67,6 +68,7 @@ class LLaMa2LLMBackbone(HFCausalLLMBackbone):
             hf_token=hf_token,
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
+            load_weight=load_weight,
             **LLAMA2_MODELS[llm_backbone_id],
         )
 

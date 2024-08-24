@@ -52,6 +52,21 @@ class ActionEncoding(IntEnum):
 
 # === Individual Dataset Configs ===
 OXE_DATASET_CONFIGS = {
+    "calvin_validation": {
+        "image_obs_keys": {
+            "primary": "rgb_static",
+            "secondary": None,
+            "wrist": "rgb_gripper",
+        },
+        "depth_obs_keys": {
+            "primary": "depth_static",
+            "secondary": None,
+            "wrist": "depth_gripper",
+        },
+        "state_obs_keys": ["robot_obs"],
+        "state_encoding": StateEncoding.POS_EULER,
+        "action_encoding": ActionEncoding.EEF_POS,
+    },
     "fractal20220817_data": {
         "image_obs_keys": {"primary": "image", "secondary": None, "wrist": None},
         "depth_obs_keys": {"primary": None, "secondary": None, "wrist": None},

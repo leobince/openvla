@@ -5,3 +5,8 @@ from .dinosiglip_vit import DinoSigLIPViTBackbone
 from .dinov2_vit import DinoV2ViTBackbone
 from .in1k_vit import IN1KViTBackbone
 from .siglip_vit import SigLIPViTBackbone
+from .nrpr_dinosiglip_vit import NRPR_DinoSigLIPViTBackbone
+from .crop_pr_dinosiglip_vit import CROP_PR_DinoSigLIPViTBackbone
+from .crop_pr_dinosiglip_vit_v2 import CROP_PR_DinoSigLIP_V2_ViTBackbone
+from .crop_pr_dinosiglip_vit_v3 import CROP_PR_DinoSigLIP_V3_ViTBackbone
+from .crop_dinosiglip_vit import CropDinoSigLIPViTBackbone

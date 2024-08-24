@@ -49,6 +49,8 @@ class DistributedOverwatch:
         """Initializer for an Overwatch object that wraps logging & `accelerate.PartialState`."""
         from accelerate import PartialState
 
+        # os.environ["NCCL_P2P_DISABLE"] = "1"
+        # os.environ["NCCL_IB_DISABLE"] = "1"
         # Note that PartialState is always safe to initialize regardless of `accelerate launch` or `torchrun`
         #   =>> However, might be worth actually figuring out if we need the `accelerate` dependency at all!
         self.logger, self.distributed_state = ContextAdapter(logging.getLogger(name), extra={}), PartialState()
@@ -107,6 +109,8 @@ class PureOverwatch:
         # Logging Defaults =>> INFO
         self.logger.setLevel(logging.INFO)
 
+        # print('local rank')
+        # print(self.local_rank())
     @staticmethod
     def get_identity_ctx() -> Callable[..., Any]:
         def identity(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -141,7 +145,15 @@ class PureOverwatch:
     @staticmethod
     def world_size() -> int:
         return 1
+    
+    @staticmethod
+    def local_rank() -> int:
+        return 0
+    
+    
 
 
 def initialize_overwatch(name: str) -> Union[DistributedOverwatch, PureOverwatch]:
     return DistributedOverwatch(name) if int(os.environ.get("WORLD_SIZE", -1)) != -1 else PureOverwatch(name)
+    # return DistributedOverwatch(name)
+

@@ -496,6 +496,20 @@ class Prism_7B_DINOSigLIP_224px(Exp_7B_One_Stage):
     arch_specifier: str = "no-align+fused-gelu-mlp"
     finetune_epochs: int = 2
 
+@dataclass
+class Jetmoe_DINOSigLIP_224px(Exp_7B_One_Stage):
+    model_id: str = "jetmoe-dinosiglip-224px"
+    vision_backbone_id: str = "crop_pr_dinosiglip-vit"
+    image_resize_strategy: str = "resize-naive"
+    llm_backbone_id: str = "jetmoe-8b"
+    arch_specifier: str = "no-align+fused-gelu-mlp"
+    align_epochs: int = 10
+    finetune_epochs: int = 2
+    align_global_batch_size: int = 2
+    finetune_global_batch_size: int = 8
+    align_per_device_batch_size: int = 1
+    finetune_per_device_batch_size: int = 2
+    
 
 # === Define a Model Registry Enum for Reference & Validation ===
 @unique
@@ -573,6 +587,8 @@ class ModelRegistry(Enum):
     OPT_DINOSIGLIP_224PX_RESIZE_NAIVE = Opt_7B_DINOSigLIP_ViT_SO_p14_224px_Resize_Naive
     PRISM_DINOSIGLIP_224PX_CONTROLLED_7B = Prism_7B_DINOSigLIP_224px_Controlled
     PRISM_DINOSIGLIP_224PX_7B = Prism_7B_DINOSigLIP_224px
+    
+    JETMOE_DINOSIGLIP_224PX = Jetmoe_DINOSigLIP_224px
 
     @property
     def model_id(self) -> str:

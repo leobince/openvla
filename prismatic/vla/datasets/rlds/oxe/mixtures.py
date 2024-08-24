@@ -15,8 +15,24 @@ OXE_NAMED_MIXTURES: Dict[str, List[Tuple[str, float]]] = {
         ("bridge_orig", 1.0),                                   # Original Version of Bridge V2 from Project Website
     ],
 
+    "calvin_training": [
+        ("calvin_training", 1.0)
+    ],
+    
+    "taco_play": [
+        ("taco_play", 1.0),
+        ("bc_z", 1.0)
+    ],
+    
+    "bc_z":[
+        ("bc_z", 1.0)
+    ],
     "fractal20220817_data":[
         ("fractal20220817_data", 1.0),
+    ],
+
+    "austin_sailor_dataset_converted_externally_to_rlds":[
+        ("austin_sailor_dataset_converted_externally_to_rlds", 1.0),
     ],
     
     # === [Moderate-Scale] Bridge++ Mixtures ===

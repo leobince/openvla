@@ -39,14 +39,15 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
-
 import draccus
 import torch
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from PIL import Image
-from transformers import AutoModelForVision2Seq, AutoProcessor
+from transformers import AutoProcessor
+from prismatic.models import load_vla
+
 
 # === Utilities ===
 SYSTEM_PROMPT = (
@@ -71,22 +72,12 @@ class OpenVLAServer:
             => Returns  {"action": np.ndarray}
         """
         self.openvla_path, self.attn_implementation = openvla_path, attn_implementation
-        self.device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        self.device = torch.device("cuda:1") if torch.cuda.is_available() else torch.device("cpu")
 
         # Load VLA Model using HF AutoClasses
-        self.processor = AutoProcessor.from_pretrained(self.openvla_path, trust_remote_code=True)
-        self.vla = AutoModelForVision2Seq.from_pretrained(
-            self.openvla_path,
-            attn_implementation=attn_implementation,
-            torch_dtype=torch.bfloat16,
-            low_cpu_mem_usage=True,
-            trust_remote_code=True,
-        ).to(self.device)
+        self.vla = load_vla("/mnt/nas/share/home/qbc/ckpt/prism-dinosiglip-224px+mx-bridge-try+n1+b4+x7/checkpoints/step-027500-epoch-528-loss=0.1609.pt", hf_token=None, load_for_training=False).to(self.device)
 
-        # [Hacky] Load Dataset Statistics from Disk (if passing a path to a fine-tuned model)
-        if os.path.isdir(self.openvla_path):
-            with open(Path(self.openvla_path) / "dataset_statistics.json", "r") as f:
-                self.vla.norm_stats = json.load(f)
+
 
     def predict_action(self, payload: Dict[str, Any]) -> str:
         try:
@@ -101,8 +92,9 @@ class OpenVLAServer:
 
             # Run VLA Inference
             prompt = get_openvla_prompt(instruction, self.openvla_path)
-            inputs = self.processor(prompt, Image.fromarray(image).convert("RGB")).to(self.device, dtype=torch.bfloat16)
-            action = self.vla.predict_action(**inputs, unnorm_key=unnorm_key, do_sample=False)
+            image = Image.fromarray(image).convert("RGB")
+            action = self.vla.predict_action(image = image, instruction = prompt, unnorm_key='calvin_validation')
+
             if double_encode:
                 return JSONResponse(json_numpy.dumps(action))
             else:
@@ -117,7 +109,7 @@ class OpenVLAServer:
             )
             return "error"
 
-    def run(self, host: str = "0.0.0.0", port: int = 8000) -> None:
+    def run(self, host: str = "10.71.106.238", port: int = 2022) -> None:
         self.app = FastAPI()
         self.app.post("/act")(self.predict_action)
         uvicorn.run(self.app, host=host, port=port)
@@ -126,11 +118,11 @@ class OpenVLAServer:
 @dataclass
 class DeployConfig:
     # fmt: off
-    openvla_path: Union[str, Path] = "openvla/openvla-7b"               # HF Hub Path (or path to local run directory)
+    openvla_path: Union[str, Path] = "/home/zmz/.cache/huggingface/transformers/openvla-7b"               # HF Hub Path (or path to local run directory)
 
     # Server Configuration
-    host: str = "0.0.0.0"                                               # Host IP Address
-    port: int = 8000                                                    # Host Port
+    host: str = "10.71.106.238"                                               # Host IP Address
+    port: int = 2022                                                    # Host Port
 
     # fmt: on
 

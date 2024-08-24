@@ -25,7 +25,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from prismatic.models.backbones.llm.prompting import PromptBuilder
 from prismatic.overwatch import initialize_overwatch
-
+from ..jetmoe_project import JetMoEConfig, JetMoEForCausalLM
 import os
 # Suppress HF Deprecation Warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -110,32 +110,54 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
         hf_token: Optional[str] = None,
         inference_mode: bool = False,
         use_flash_attention_2: bool = False,
+        load_weight: bool = True,
+        # llm_weight_path: Optional[str] = None,
     ) -> None:
         super().__init__(llm_backbone_id)
         self.llm_family = llm_family
         self.llm_max_length = llm_max_length
         self.inference_mode = inference_mode
+        self.load_weight = load_weight
 
         # Initialize LLM (downloading from HF Hub if necessary) --> `llm_cls` is the actual {Model}ForCausalLM class!
         #   => Note: We're eschewing use of the AutoModel API so that we can be more explicit about LLM-specific details
-        if not self.inference_mode:
-            print(self.inference_mode)
+        # 只有在既是训练模式同时需要传入weight时才传入weight
+        if llm_backbone_id == "jetmoe-8b":
+            is_jetmoe = True
+
+        if not self.inference_mode and self.load_weight:
+            # print(self.inference_mode)
+            
             overwatch.info(f"Loading [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
-            self.llm = llm_cls.from_pretrained(
-                hf_hub_path,
-                token=hf_token,
-                use_flash_attention_2=use_flash_attention_2 if not self.inference_mode else False,
-                # The following parameters are set to prevent `UserWarnings` from HF; we want greedy decoding!
-                do_sample=False,
-                temperature=1.0,
-                top_p=1.0,
-            )
+            
+            if is_jetmoe:
+                # AutoConfig.register("jetmoe", JetMoEConfig)
+                # AutoModelForCausalLM.register(JetMoEConfig, JetMoEForCausalLM)
+                # self.llm = AutoModelForCausalLM.from_pretrained("jetmoe/jetmoe-8b")
+                self.llm = llm_cls.from_pretrained("jetmoe/jetmoe-8b")
+            
+            else:
+                self.llm = llm_cls.from_pretrained(
+                    hf_hub_path,
+                    token=hf_token,
+                    use_flash_attention_2=use_flash_attention_2 if not self.inference_mode else False,
+                    # The following parameters are set to prevent `UserWarnings` from HF; we want greedy decoding!
+                    do_sample=False,
+                    temperature=1.0,
+                    top_p=1.0,
+                )
 
         # [Contract] `inference_mode` means we're loading from a pretrained checkpoint; no need to load base weights!
         else:
             overwatch.info(f"Building empty [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
             if os.path.isdir(hf_hub_path):
-                llm_config = AutoConfig.from_pretrained(hf_hub_path)
+                
+                if is_jetmoe == False:
+                    llm_config = AutoConfig.from_pretrained(hf_hub_path)
+                else:
+                    # 这里只针对jetmoe做注册
+                    AutoConfig.register("jetmoe", JetMoEConfig)
+                    llm_config = AutoConfig.from_pretrained("jetmoe/jetmoe-8b")
             else:
                 llm_config = AutoConfig.from_pretrained(hf_hub_path, token=hf_token)
             self.llm = llm_cls._from_config(llm_config)

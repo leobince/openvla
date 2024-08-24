@@ -49,7 +49,7 @@ class TrainConfig:
 
     # VLAConfig (`prismatic/conf/vla.py`); override with --vla.type `VLARegistry.<VLA>.vla_id`
     vla: VLAConfig = field(
-        default_factory=VLAConfig.get_choice_class(VLARegistry.DINOSIGLIP_224PX_MX_OXE_MAGIC_SOUP_PLUS.vla_id)
+        default_factory=VLAConfig.get_choice_class("jetmoe-try")
     )
 
     # Directory Paths
@@ -78,10 +78,11 @@ class TrainConfig:
     hf_token: Union[str, Path] = ""
 
     # Tracking Parameters
-    trackers: Tuple[str, ...] = ("jsonl", "wandb")                  # Trackers to initialize (if W&B, add config!)
+    trackers: Tuple[str, ...] = ("jsonl",)                  # Trackers to initialize (if W&B, add config!)
     wandb_project: str = "openvla"                                  # Name of W&B project to log to (use default!)
-    wandb_entity: str = "stanford-voltron"                          # Name of entity to log under
-
+    wandb_entity: str = "sellerbubble"                          # Name of entity to log under
+    llmbackbone_load_weight: bool = False                               # 表明是否需要从llm backbone导入权重 ，如果导入则vlm不用再导入
+    use_jetmoe: bool = False
     def __post_init__(self) -> None:
         """Lift optimization parameters from `self.vla` for ease of use =>> validate on `expected_world_size`"""
         self.epochs = self.vla.epochs
@@ -112,6 +113,8 @@ def train(cfg: TrainConfig) -> None:
     # Note => Under `torchrun` initializing `overwatch` will automatically set up `torch.distributed`
     torch.cuda.set_device(device_id := overwatch.local_rank())
     torch.cuda.empty_cache()
+
+    # cfg.vla.expected_world_size = 16
 
     # Configure Unique Run Name & Save Directory
     vla_id = cfg.vla.vla_id
@@ -150,11 +153,11 @@ def train(cfg: TrainConfig) -> None:
             assert int(re.search("step-(.+?)-", cfg.pretrained_checkpoint.name).group(1)) == cfg.resume_step
             assert int(re.search("epoch-(.+?)-", cfg.pretrained_checkpoint.name).group(1)) == cfg.resume_epoch
 
-        vlm = load_vla(cfg.pretrained_checkpoint, hf_token=hf_token, load_for_training=True)
+        vlm = load_vla(cfg.pretrained_checkpoint, hf_token=hf_token, load_for_training=True, llmbackbone_load_weight=cfg.llmbackbone_load_weight)
 
     else:
         if cfg.prismatic_checkpoint is not None:
-            vlm = load(cfg.prismatic_checkpoint, hf_token=hf_token, load_for_training=True)
+            vlm = load(cfg.prismatic_checkpoint, hf_token=hf_token, load_for_training=True, llmbackbone_load_weight=cfg.llmbackbone_load_weight)
         else:
             vlm = load(cfg.vla.base_vlm, hf_token=hf_token, load_for_training=True)
 

@@ -56,6 +56,8 @@ def load(
     hf_token: Optional[str] = None,
     cache_dir: Optional[Union[str, Path]] = None,
     load_for_training: bool = False,
+    llmbackbone_load_weight: bool = True,
+    # use_jetmoe: bool = False
 ) -> PrismaticVLM:
     """Loads a pretrained PrismaticVLM from either local disk or the HuggingFace Hub."""
     if os.path.isdir(model_id_or_path):
@@ -97,14 +99,19 @@ def load(
         model_cfg["image_resize_strategy"],
     )
 
+    # 这里为了测试moe 将cfg强行赋值
+    # if use_jetmoe:
+        # model_cfg["llm_backbone_id"] = "jetmoe-8b"
     # Load LLM Backbone --> note `inference_mode = True` by default when calling `load()`
     overwatch.info(f"Loading Pretrained LLM [bold]{model_cfg['llm_backbone_id']}[/] via HF Transformers")
+
+    # inference mode 为 true表示不加载预训练llm权重 
     llm_backbone, tokenizer = get_llm_backbone_and_tokenizer(
         model_cfg["llm_backbone_id"],
         llm_max_length=model_cfg.get("llm_max_length", 2048),
         hf_token=hf_token,
-        # inference_mode=not load_for_training,
-        inference_mode=True
+        inference_mode=not load_for_training,
+        load_weight = llmbackbone_load_weight,
     )
 
     # Load VLM using `from_pretrained` (clobbers HF syntax... eventually should reconcile)
@@ -115,7 +122,8 @@ def load(
         vision_backbone,
         llm_backbone,
         arch_specifier=model_cfg["arch_specifier"],
-        freeze_weights=not load_for_training,
+        freeze_weights= not load_for_training,
+        llm_load_weight= not llmbackbone_load_weight,
     )
 
     return vlm
@@ -129,6 +137,7 @@ def load_vla(
     load_for_training: bool = False,
     step_to_load: Optional[int] = None,
     model_type: str = "pretrained",
+    llmbackbone_load_weight: bool = False,
 ) -> OpenVLA:
     """Loads a pretrained OpenVLA from either local disk or the HuggingFace Hub."""
 
@@ -148,7 +157,6 @@ def load_vla(
             # [Validate] Checkpoint Path should look like `.../<RUN_ID>/checkpoints/<CHECKPOINT_PATH>.pt`
             assert (checkpoint_pt.suffix == ".pt") and (checkpoint_pt.parent.name == "checkpoints"), "Invalid checkpoint!"
             run_dir = checkpoint_pt.parents[1]
-
             # Get paths for `config.json`, `dataset_statistics.json` and pretrained checkpoint
             config_json, dataset_statistics_json = run_dir / "config.json", run_dir / "dataset_statistics.json"
             assert config_json.exists(), f"Missing `config.json` for `{run_dir = }`"
@@ -215,8 +223,9 @@ def load_vla(
         model_cfg.llm_backbone_id,
         llm_max_length=model_cfg.llm_max_length,
         hf_token=hf_token,
-        # inference_mode=not load_for_training,
-        inference_mode=True
+        inference_mode=not load_for_training,
+        load_weight=llmbackbone_load_weight
+        
     )
 
     # Create Action Tokenizer
@@ -233,6 +242,7 @@ def load_vla(
         freeze_weights=not load_for_training,
         norm_stats=norm_stats,
         action_tokenizer=action_tokenizer,
+        llm_load_weight=not llmbackbone_load_weight,
     )
 
     return vla

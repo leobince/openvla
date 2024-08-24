@@ -19,6 +19,12 @@ Run with:
     - [Single Node Multi-GPU (= $K)]: torchrun --standalone --nnodes 1 --nproc-per-node $K scripts/pretrain.py
     - [Multi-Node/AWS Sagemaker] Depends on your individual setup; file an issue if you have trouble!
 """
+import sys
+
+# 添加一个新的目录到 sys.path
+new_path = "/mnt/nas/share/home/qbc/moe-vla"
+if new_path not in sys.path:
+    sys.path.append(new_path)
 
 import json
 import os
@@ -38,45 +44,67 @@ from prismatic.preprocessing import get_dataset_and_collator
 from prismatic.training import Metrics, get_train_strategy
 from prismatic.util import set_global_seed
 
+def initialize_process_group():
+    # 设置环境变量
+    os.environ['RANK'] = '0'  # 当前进程的排名
+    os.environ['WORLD_SIZE'] = '-1'  # 总的进程数
+    os.environ['MASTER_ADDR'] = 'localhost'  # 主节点的地址
+    os.environ['MASTER_PORT'] = '12345'  # 主节点的端口
+    os.environ["NCCL_P2P_DISABLE"] = "1"
+    os.environ["NCCL_IB_DISABLE"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICE"] = "2"
+    # 初始化进程组
+    dist.init_process_group(
+        backend='nccl',  # 使用 NCCL 后端
+        init_method='env://'  # 从环境变量中读取配置
+    )
+
+
+# initialize_process_group()
+
 # Disable Tokenizers Parallelism to Play Nice w/ PyTorch Multiprocessing DataLoaders
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
 
+import sys
+
+# 添加一个新的目录到 sys.path
+new_path = "/mnt/nas/share/home/qbc/moe-vla"
+if new_path not in sys.path:
+    sys.path.append(new_path)
 
 @dataclass
 class PretrainConfig:
     # fmt: off
 
     # ModelConfig (`prismatic/conf/models.py`); override with --model.type `ModelRegistry.<MODEL>.model_id`
-    model: ModelConfig = field(
-        default_factory=ModelConfig.get_choice_class(ModelRegistry.PRISM_DINOSIGLIP_CONTROLLED_7B.model_id)
-    )
+    model: ModelConfig = field(default_factory=ModelConfig.get_choice_class("jetmoe-dinosiglip-224px"))
+    
 
     # DatasetConfig (`prismatic/conf/datasets.py`); override with --dataset.type `DatasetRegistry.<DATASET>.dataset_id`
-    dataset: DatasetConfig = field(
-        default_factory=DatasetConfig.get_choice_class(DatasetRegistry.LLAVA_V15.dataset_id)
-    )
+    dataset: DatasetConfig = field(default_factory=DatasetConfig.get_choice_class("jetmoe_try"))
+    
 
     # Pretraining Stage in < align (projector-only) | finetune (projector + LLM) | full-finetune (all) >
     # ---
-    stage: str = "finetune"                                         # Pretraining Stage in < align | finetune >
+    stage: str = "align"                                         # Pretraining Stage in < align | finetune >
     pretrained_checkpoint: Optional[Path] = None                    # Pretrained Checkpoint to Load (for `finetune`)
                                                                     #   if None =>> will match on (run_dir / `align`)
 
     # Run Arguments
     run_id: Optional[str] = None                                    # Run ID for logging, Weights & Biases
-    run_root_dir: Path = Path("/mnt/csp/mmvision/home/lwh/qbc/origin/moeorigin/runs")     # Path to directory to store logs & checkpoints
+    run_root_dir: Path = Path("/mnt/nas/share/home/qbc/moe-vla/runs")     # Path to directory to store logs & checkpoints
     seed: int = 7                                                   # Random seed (for reproducibility)
 
     # HF Hub Credentials (for any gated models)
     hf_token: Union[str, Path] = Path(".hf_token")                  # Environment variable or Path to HF Token
 
     # Tracking Parameters
-    trackers: Tuple[str, ...] = ("jsonl",)                  # Trackers to initialize (if W&B, add config!)
-    wandb_project: str = "onyx-vlms"                                # Name of W&B project (default: `prismatic`)
-    wandb_entity: Optional[str] = "stanford-voltron"                # Name of W&B entity (default: None)
+    trackers: Tuple[str, ...] = ("jsonl","wandb")                  # Trackers to initialize (if W&B, add config!)
+    wandb_project: str = "openvla"                                # Name of W&B project (default: `prismatic`)
+    wandb_entity: Optional[str] = "sellerbubble"                # Name of W&B entity (default: None)
 
     llm_load_weight: bool = False
     def __post_init__(self) -> None:
@@ -115,12 +143,21 @@ class PretrainConfig:
     # fmt: on
 
 
+
 @draccus.wrap()
 def pretrain(cfg: PretrainConfig) -> None:
+    
+    # initialize_process_group()
+    
     overwatch.info("Prismatic VLM Training :: Gathering Light")
 
+    # if hasattr(overwatch, "local_rank"):
+        # print("aaa")
+    # else:
+        # print("bbb")
     # Note => Under `torchrun` initializing `overwatch` will automatically set up `torch.distributed`
     torch.cuda.set_device(device_id := overwatch.local_rank())
+    # print(overwatch.local_rank())
     torch.cuda.empty_cache()
 
     # Create Unique Run Name & Save Directory
@@ -238,9 +275,10 @@ def pretrain(cfg: PretrainConfig) -> None:
 
 if __name__ == "__main__":
     
-    config = PretrainConfig(
-    model=ModelConfig.get_choice_class("jetmoe-dinosiglip-224px"),
+    # config = PretrainConfig(
+    # model=ModelConfig.get_choice_class("jetmoe-dinosiglip-224px"),
     # dataset=DatasetConfig.get_choice_class("jetmoe_try"),
-    stage="align")
-    
+    # stage="align")
+    # PretrainConfig.model = ModelConfig.get_choice_class("jetmoe-dinosiglip-224px")
+    # PretrainConfig.stage = "align"
     pretrain()

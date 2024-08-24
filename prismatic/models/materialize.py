@@ -19,6 +19,11 @@ from prismatic.models.backbones.vision import (
     IN1KViTBackbone,
     SigLIPViTBackbone,
     VisionBackbone,
+    NRPR_DinoSigLIPViTBackbone,
+    CROP_PR_DinoSigLIPViTBackbone,
+    CROP_PR_DinoSigLIP_V2_ViTBackbone,
+    CROP_PR_DinoSigLIP_V3_ViTBackbone,
+    CropDinoSigLIPViTBackbone,
 )
 from prismatic.models.vlms import PrismaticVLM
 
@@ -47,6 +52,21 @@ VISION_BACKBONES = {
     # === Fused Backbones ===
     "dinoclip-vit-l-336px": {"cls": DinoCLIPViTBackbone, "kwargs": {"default_image_size": 336}},
     "dinosiglip-vit-so-384px": {"cls": DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 384}},
+    
+    # === Native Resolution with Perceiver Resampler Backbones ===
+    "nrpr_dinosiglip-vit": {"cls": NRPR_DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 224}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_pr_dinosiglip-vit": {"cls": CROP_PR_DinoSigLIPViTBackbone, "kwargs": {"default_image_size": 384}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_pr_dinosiglip_v2-vit": {"cls": CROP_PR_DinoSigLIP_V2_ViTBackbone, "kwargs": {"default_image_size": 224}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_pr_dinosiglip_v3-vit": {"cls": CROP_PR_DinoSigLIP_V3_ViTBackbone, "kwargs": {"default_image_size": 384}},
+    
+    # === IMAGE CROP with Perceiver Resampler Backbones ===
+    "crop_dinosiglip-vit": {"cls": CropDinoSigLIPViTBackbone, "kwargs": {"default_image_size": 384}},
 }
 
 
@@ -99,6 +119,7 @@ def get_llm_backbone_and_tokenizer(
     llm_max_length: int = 2048,
     hf_token: Optional[str] = None,
     inference_mode: bool = False,
+    load_weight: bool = True,
 ) -> Tuple[LLMBackbone, PreTrainedTokenizerBase]:
     if llm_backbone_id in LLM_BACKBONES:
         llm_cfg = LLM_BACKBONES[llm_backbone_id]
@@ -107,6 +128,7 @@ def get_llm_backbone_and_tokenizer(
             llm_max_length=llm_max_length,
             hf_token=hf_token,
             inference_mode=inference_mode,
+            load_weight = load_weight,
             **llm_cfg["kwargs"],
         )
         tokenizer = llm_backbone.get_tokenizer()
