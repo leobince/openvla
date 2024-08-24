@@ -133,8 +133,8 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
             if is_jetmoe:
                 # AutoConfig.register("jetmoe", JetMoEConfig)
                 # AutoModelForCausalLM.register(JetMoEConfig, JetMoEForCausalLM)
-                # self.llm = AutoModelForCausalLM.from_pretrained("jetmoe/jetmoe-8b")
-                self.llm = llm_cls.from_pretrained("jetmoe/jetmoe-8b")
+                # self.llm = AutoModelForCausalLM.from_pretrained("/mnt/csp/mmvision/home/lwh/jetmoe-8b/jetmoe-8b")
+                self.llm = llm_cls.from_pretrained("/mnt/csp/mmvision/home/lwh/jetmoe-8b/jetmoe-8b")
             
             else:
                 self.llm = llm_cls.from_pretrained(
@@ -156,8 +156,8 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
                     llm_config = AutoConfig.from_pretrained(hf_hub_path)
                 else:
                     # 这里只针对jetmoe做注册
-                    AutoConfig.register("jetmoe", JetMoEConfig)
-                    llm_config = AutoConfig.from_pretrained("jetmoe/jetmoe-8b")
+                    AutoConfig.register("jetmoe-8b", JetMoEConfig)
+                    llm_config = AutoConfig.from_pretrained("/mnt/csp/mmvision/home/lwh/jetmoe-8b/jetmoe-8b")
             else:
                 llm_config = AutoConfig.from_pretrained(hf_hub_path, token=hf_token)
             self.llm = llm_cls._from_config(llm_config)

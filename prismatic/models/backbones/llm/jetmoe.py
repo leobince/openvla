@@ -41,7 +41,7 @@ from folder1 import file1
 JetmoeModel = {
     # === Pure Meta LLaMa-2 (non-instruct/chat-tuned) Models ===
     "jetmoe-8b": {
-        "llm_family": "jetmoe", "llm_cls": JetMoEForCausalLM, "hf_hub_path": "jetmoe/jetmoe-8b"
+        "llm_family": "jetmoe", "llm_cls": JetMoEForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/jetmoe-8b/jetmoe-8b"
     },
 
     

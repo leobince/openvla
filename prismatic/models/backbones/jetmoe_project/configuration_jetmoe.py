@@ -83,7 +83,7 @@ class JetMoEConfig(PretrainedConfig):
     >>> configuration = model.config
     ```"""
 
-    model_type = "jetmoe"
+    model_type = "jetmoe-8b"
     keys_to_ignore_at_inference = ["past_key_values"]
 
     def __init__(

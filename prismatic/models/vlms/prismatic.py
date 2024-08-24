@@ -29,7 +29,7 @@ from prismatic.util.nn_utils import FusedMLPProjector, LinearProjector, MLPProje
 from transformers.models.idefics2.configuration_idefics2 import Idefics2Config
 from transformers.models.idefics2.modeling_idefics2 import Idefics2Connector
 import torch.nn as nn
-
+from einops import rearrange
 from ...util.utils import load_statedict
 
 # Initialize Overwatch =>> Wraps `logging.Logger`
@@ -45,7 +45,8 @@ class PRProjector(nn.Module):
         super().__init__()
         self.device = device  # Store device
         vision_config = {"hidden_size": 2176}
-        self.config = Idefics2Config(vision_config = vision_config)
+        text_config = {"hidden_size": 2048}
+        self.config = Idefics2Config(vision_config = vision_config, text_config = text_config)
         self.connector = Idefics2Connector(self.config).to(self.device)  # Ensure connector is on the correct device
 
         if mlp_type == "gelu-mlp":
@@ -61,24 +62,21 @@ class PRProjector(nn.Module):
 
     def project(self, img_patches: torch.Tensor) -> torch.Tensor:
 
-        # Assumed dimensions and patch size
-
-        patch_size = self.config.vision_config.patch_size
-        # Create an all-ones tensor in the shape of the expected patch grid
-
         patch_attention_mask = torch.ones(img_patches.shape[:2], dtype=torch.float32,device=self.device)
         img_patches = self.connector(img_patches, attention_mask=patch_attention_mask)
         return img_patches
     
     def forward(self, img_patches: torch.Tensor) -> torch.Tensor:
 
-        chunks = torch.chunk(img_patches, chunks=5, dim=0)
-        result = torch.empty((1, 0, 4096), dtype=torch.bfloat16, device=self.device)
-        for i, chunk in enumerate(chunks):
-            processed_chunk = self.project(chunk)
-            result = torch.cat((result, processed_chunk), dim=1)
-
-        return self.projector(result)
+        #add the following line when using vision_backbone_id = "crop_dinosiglip-vit" & model.arch_specifier = "pr" 
+        img_patches = rearrange(img_patches, 'batch (crop token) dim -> (batch crop) token dim', crop=5)
+        
+        processed_img_patches = self.project(img_patches)
+        
+        #processed_img_patches =  torch.Size([15, 64, 4096])
+        result = rearrange(processed_img_patches, '(batch crop) token dim -> batch (crop token) dim', crop=5)
+        
+        return result
     
 
     

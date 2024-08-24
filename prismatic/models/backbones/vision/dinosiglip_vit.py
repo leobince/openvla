@@ -160,9 +160,6 @@ class DinoSigLIPViTBackbone(VisionBackbone):
         siglip_patches = self.siglip_featurizer(pixel_values["siglip"])
         #resize-crop:   pixel_values_dino =  torch.Size([1, 3, 384, 384]) pixel_values_siglip =  torch.Size([1, 3, 384, 384])
         #resize-naive:   pixel_values_dino =  torch.Size([1, 3, 384, 384]) pixel_values_siglip =  torch.Size([1, 3, 384, 384])
-        print("$$$$$$$$$$$$$$$$$$$$pixel_values_dino = ", pixel_values["dino"].shape) 
-        print("$$$$$$$$$$$$$$$$$$$pixel_values_siglip = ", pixel_values["siglip"].shape)
-        print("emb_dim = ", self.dino_featurizer.embed_dim, "+", self.siglip_featurizer.embed_dim)
         return torch.cat([dino_patches, siglip_patches], dim=2)
 
     @property
