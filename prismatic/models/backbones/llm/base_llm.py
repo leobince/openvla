@@ -33,7 +33,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # Initialize Overwatch =>> Wraps `logging.Logger`
 overwatch = initialize_overwatch(__name__)
 
-from ..jetmoe_project import JetMoEConfig_bubble, JetMoEForCausalLM
+# from transformers import JetMoeConfig
+from ..jetmoe_project import JetMoEConfig_bubble
 from ..gemmamoe_project import GemmaMoEConfig
 # === Abstract Base Class for arbitrary HF LLM Backbones ===
 class LLMBackbone(nn.Module, ABC):
@@ -111,7 +112,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
         hf_token: Optional[str] = None,
         inference_mode: bool = False,
         use_flash_attention_2: bool = False,
-      
+        llm_load_weight: bool = True,
      
         **kwargs
     ) -> None:
@@ -124,11 +125,11 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
         #   => Note: We're eschewing use of the AutoModel API so that we can be more explicit about LLM-specific details
             
         
-        if not self.inference_mode:
+        if not self.inference_mode and llm_load_weight:
             
             overwatch.info(f"Loading [bold]{llm_family}[/] LLM from [underline]`{hf_hub_path}`[/]", ctx_level=1)
             if os.path.exists(hf_hub_path):
-                self.llm = llm_cls.from_pretrained(hf_hub_path, attn_implementation='eager')
+                self.llm = llm_cls.from_pretrained(hf_hub_path)
             else:
                 self.llm = llm_cls.from_pretrained(
                     hf_hub_path,
@@ -147,7 +148,7 @@ class HFCausalLLMBackbone(LLMBackbone, ABC):
                 
                 if llm_backbone_id == 'jetmoe-8b':
                     AutoConfig.register("jetmoe-bubble", JetMoEConfig_bubble)
-                    llm_config = AutoConfig.from_pretrained(hf_hub_path, _attn_implementation='eager')
+                    llm_config = AutoConfig.from_pretrained(hf_hub_path)
                 elif llm_backbone_id == "gemmamoe":
                     AutoConfig.register(llm_backbone_id, GemmaMoEConfig)
                     llm_config = AutoConfig.from_pretrained(hf_hub_path)

@@ -71,7 +71,22 @@ class Onevision_Config(DatasetConfig):
         Path("llava_mix665k/"),
     )
     dataset_root_dir: Path = Path("/mnt/csp/mmvision/home/lwh/")
-    
+  
+
+@dataclass
+class Try(DatasetConfig):
+    dataset_id: str = "try"
+
+    align_stage_components: Tuple[Path, Path] = (
+        Path("llava_558k/blip_laion_cc_sbu_558k_filtered_2.json"),
+        Path("llava_558k/"),
+    )
+    finetune_stage_components: Tuple[Path, Path] = (
+        Path("llava_mix665k/llava_v1_5_mix665k_filter_merge_sample1.json"),
+        Path("llava_mix665k/"),
+    )
+    dataset_root_dir: Path = Path("/mnt/csp/mmvision/home/lwh/")
+ 
 # [Reproduction] LLaVa-v15 (exact dataset used in all public LLaVa-v15 models)
 @dataclass
 class LLaVa_V15_Config(DatasetConfig):
@@ -168,6 +183,7 @@ class DatasetRegistry(Enum):
     JETMOE_LLAVA = Jetmoe_LLaVa_Config
     LLAVA_MORE = _LLaVa_More_Config
     LLAVANEXT_ONEVISION = Onevision_Config
+    TRY = Try
     @property
     def dataset_id(self) -> str:
         return self.value.dataset_id

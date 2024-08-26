@@ -536,6 +536,7 @@ class Jetmoe_DINOSigLIP_224px(Exp_7B_One_Stage):
 class Jetmoe_Crop_DINOSigLIP_384px(Jetmoe_DINOSigLIP_224px):
     model_id: str = "jetmoe-crop-dinosiglip-384px"
     vision_backbone_id: str = "crop_dinosiglip-vit"
+    llm_backbone_id: str = "jetmoetrans-8b"
  
 @dataclass
 class Jetmoe_Navit_224px(Jetmoe_DINOSigLIP_224px):
@@ -586,6 +587,14 @@ class Gemma2_Crop_DINOSigLIP_384px(Gemma2_DINOSigLIP_224px):
     model_id: str = "gemma2-crop-dinosiglip-384px"
     vision_backbone_id: str = "crop_dinosiglip-vit"
     finetune_per_device_batch_size: int = 1
+
+@dataclass
+class Phi2_DINOSigLIP_224px(Gemma2_DINOSigLIP_224px):
+    model_id: str = "phi-2-3b-dinosiglip-224px"
+    vision_backbone_id: str = "dinosiglip-vit-so-224px"
+    llm_backbone_id: str = "phi-2-3b"
+    finetune_per_device_batch_size: int = 1
+
 
 @dataclass
 class Llama2_DINOSigLIP_224px(Exp_7B_One_Stage):
@@ -668,6 +677,7 @@ class ModelRegistry(Enum):
     JETMOE_NAVIT = Jetmoe_Navit_224px
     JETMOE_CROP_DINOSIGLIP_384PX = Jetmoe_Crop_DINOSigLIP_384px
     GEMMA2_CROP_DINOSIGLIP_384PX = Gemma2_Crop_DINOSigLIP_384px
+    PHI2_DINOSIGLIP_224PX = Phi2_DINOSigLIP_224px
     #jetmoe
     JETMOE_8B = Jetmoe_DINOSigLIP_224px
     

@@ -9,7 +9,16 @@ from typing import Optional, Tuple
 
 from transformers import PreTrainedTokenizerBase
 
-from prismatic.models.backbones.llm import LLaMa2LLMBackbone, LLMBackbone, MistralLLMBackbone, PhiLLMBackbone, JetmoeBackbone, Gemma2LLMBackbone, GemmamoeBackbone
+from prismatic.models.backbones.llm import (LLaMa2LLMBackbone, 
+                                            LLMBackbone, 
+                                            MistralLLMBackbone, 
+                                            PhiLLMBackbone, 
+                                            JetmoeBackbone, 
+                                            Gemma2LLMBackbone, 
+                                            GemmamoeBackbone,
+                                            JetmoetransBackbone,
+                                            GemmaLLMBackbone
+                                          )
 from prismatic.models.backbones.vision import (
     CLIPViTBackbone,
     DinoCLIPViTBackbone,
@@ -97,7 +106,10 @@ LLM_BACKBONES = {
     "jetmoe-8b": {"cls": JetmoeBackbone, "kwargs": {}},
     "gemma2-2b": {"cls": Gemma2LLMBackbone, "kwargs": {}},
     "llama2-7b": {"cls": LLaMa2LLMBackbone, "kwargs": {}},
-    "gemmamoe": {"cls": GemmamoeBackbone, "kwargs": {}}
+    "gemmamoe": {"cls": GemmamoeBackbone, "kwargs": {}},
+    "jetmoetrans-8b": {"cls": JetmoetransBackbone, "kwargs": {}},
+    "gemma2-2b-it":{"cls": Gemma2LLMBackbone, "kwargs": {}},
+    "gemma-2b":{"cls": GemmaLLMBackbone, "kwargs": {}},
 }
 
 # fmt: on
@@ -125,6 +137,7 @@ def get_llm_backbone_and_tokenizer(
     hf_token: Optional[str] = None,
     inference_mode: bool = False,
     debug: bool = False,
+    llm_load_weight: bool = True
 ) -> Tuple[LLMBackbone, PreTrainedTokenizerBase]:
     if llm_backbone_id in LLM_BACKBONES:
         llm_cfg = LLM_BACKBONES[llm_backbone_id]
@@ -134,6 +147,7 @@ def get_llm_backbone_and_tokenizer(
             hf_token=hf_token,
             inference_mode=inference_mode,
             debug = debug,
+            llm_load_weight=llm_load_weight,
             **llm_cfg["kwargs"],
         )
         tokenizer = llm_backbone.get_tokenizer()

@@ -5,3 +5,5 @@ from .phi import PhiLLMBackbone
 from .jetmoe import JetmoeBackbone
 from .gemma2 import Gemma2LLMBackbone
 from .gemmamoe import GemmamoeBackbone
+from .jetmoe_transformers import JetmoetransBackbone
+from .gemma import GemmaLLMBackbone

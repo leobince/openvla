@@ -30,7 +30,7 @@ def load_pretrained_model(cfg: PretrainConfig):
     )
     
         llm_backbone, tokenizer = get_llm_backbone_and_tokenizer(
-        cfg.model.llm_backbone_id, llm_max_length=cfg.model.llm_max_length, hf_token=None, inference_mode=cfg.llm_load_weight
+        cfg.model.llm_backbone_id, llm_max_length=cfg.model.llm_max_length, hf_token=None, inference_mode=True
     )
         vlm = get_vlm(
         cfg.model.model_id,
@@ -41,7 +41,7 @@ def load_pretrained_model(cfg: PretrainConfig):
         continue_from_checkpoint=cfg.continue_from_checkpoint,
     )
 
-        vlm.freeze_backbones(cfg.stage)
+        vlm.freeze_backbones(cfg.stage, train_llm_when_align=False)
 
 
         vlm.load_from_checkpoint(cfg.stage, run_dir=None, pretrained_checkpoint=cfg.pretrained_checkpoint)

@@ -84,9 +84,9 @@ class TrainingStrategy(ABC):
         ), "Per-device batch size must evenly divide global batch size!"
         self.grad_accumulation_steps = self.global_batch_size // self.per_device_batch_size // overwatch.world_size()
         if self.enable_mixed_precision_training:
-            # assert self.mixed_precision_dtype == torch.bfloat16, "Only BF16 mixed precision training is supported!"
-            if self.mixed_precision_dtype == torch.bfloat16:
-                assert check_bloat16_supported(), "BFloat16 is not supported on this hardware; unset `mixed_precision`"
+            assert self.mixed_precision_dtype == torch.bfloat16, "Only BF16 mixed precision training is supported!"
+        
+            assert check_bloat16_supported(), "BFloat16 is not supported on this hardware; unset `mixed_precision`"
             
     @abstractmethod
     def save_checkpoint(
@@ -197,6 +197,7 @@ class TrainingStrategy(ABC):
                         dtype=self.mixed_precision_dtype,
                         enabled=self.enable_mixed_precision_training,
                     ):
+                        # print(batch['input_ids'].shape)
                         output: CausalLMOutputWithPast = self.vlm(
                             input_ids=batch["input_ids"],
                             attention_mask=batch["attention_mask"],
@@ -307,7 +308,12 @@ class TrainingStrategy(ABC):
                 #   => Basically, if we're using mixed precision (or not), autocast()/FSDP will move to device!
                 with torch.autocast(
                     "cuda", dtype=self.mixed_precision_dtype, enabled=self.enable_mixed_precision_training
-                ):
+                ):  
+                    
+                    # print(batch['input_ids'].shape)
+                    # print(batch['labels'].shape)
+                    # print(batch['pixel_values'].shape)
+                    # print(batch['multimodal_indices'].shape)
                     # [Contract] self.vlm.forward() must automatically compute `loss` and return!
                     output: CausalLMOutputWithPast = self.vlm(
                         input_ids=batch["input_ids"],

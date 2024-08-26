@@ -153,7 +153,7 @@ class FSDPStrategy(TrainingStrategy):
         else:
             # If we're not using mixed precision, everything is in default full precision!
             fsdp_precision_policy = MixedPrecision(
-                param_dtype=torch.float32, reduce_dtype=torch.bfloat16, buffer_dtype=torch.bfloat16
+                param_dtype=torch.float32, reduce_dtype=torch.float32, buffer_dtype=torch.float32
             )
 
         # <FSDP> => note that FSDP will automatically take care of device placement (similar to `autocast`)

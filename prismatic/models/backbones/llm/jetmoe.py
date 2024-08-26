@@ -58,7 +58,7 @@ class JetmoeBackbone(HFCausalLLMBackbone):
         inference_mode: bool = False,
         use_flash_attention_2: bool = True,
         debug = False,
- 
+        llm_load_weight: bool = True
     ) -> None:
         super().__init__(
             llm_backbone_id,
@@ -67,7 +67,7 @@ class JetmoeBackbone(HFCausalLLMBackbone):
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
             debug = debug,
-       
+            llm_load_weight = llm_load_weight,
             **JetmoeModel[llm_backbone_id],
         )
 

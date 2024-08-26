@@ -108,7 +108,8 @@ class JetMoEConfig_bubble(PretrainedConfig):
         rope_theta=10000.0,
         rms_norm_eps=1e-6,
         initializer_range=0.01,
-        _attn_implementation="eager",
+        _attn_implementation='flash_attention_2',
+       
         **kwargs,
     ):
         self.vocab_size = vocab_size

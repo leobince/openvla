@@ -1,17 +1,22 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
 
-# 加载模型和分词器
 tokenizer = AutoTokenizer.from_pretrained("/mnt/csp/mmvision/home/lwh/gemma2_2b/models--google--gemma-2-2b/snapshots/c5ebcd40d208330abc697524c919956e692655cf")
-model = AutoModelForCausalLM.from_pretrained("/mnt/csp/mmvision/home/lwh/gemma2_2b/models--google--gemma-2-2b/snapshots/c5ebcd40d208330abc697524c919956e692655cf")
+model = AutoModelForCausalLM.from_pretrained(
+    "/mnt/csp/mmvision/home/lwh/gemma2_2b/models--google--gemma-2-2b/snapshots/c5ebcd40d208330abc697524c919956e692655cf",
+    device_map="cuda:0",
+    load_in_8bit=False,
+    torch_dtype=torch.float32
+)
 
-# 准备输入文本
-input_text = "Once upon a time"
-input_ids = tokenizer.encode(input_text, return_tensors="pt")
+input_text = ["Write me a poem about Machine Learning.", "I want to eat a", "I go to the", "I want", "I"]
+input_ids = tokenizer.batch_encode_plus(input_text, return_tensors="pt", padding='longest')
 
-# 生成输出
-output = model.generate(input_ids, max_length=50, num_return_sequences=1)
+for t in input_ids:
+    if torch.is_tensor(input_ids[t]):
+        input_ids[t] = input_ids[t].to("cuda:0")
 
-# 解码输出文本
-generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
+outputs = model.generate(**input_ids)
+print(outputs)
 
-print(generated_text)
+print(tokenizer.batch_decode(outputs))

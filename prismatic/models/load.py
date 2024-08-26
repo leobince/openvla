@@ -109,7 +109,8 @@ def load(
         model_cfg["llm_backbone_id"],
         llm_max_length=model_cfg.get("llm_max_length", 2048),
         hf_token=hf_token,
-        inference_mode=not llm_load_weight,
+        inference_mode=not load_for_training,
+        llm_load_weight=llm_load_weight,
         
 
     )

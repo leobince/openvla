@@ -358,6 +358,7 @@ class JetMoEAttention(nn.Module):
         ).transpose(1, 2)
 
         kv_seq_len = key_states.shape[2]
+        print(kv_seq_len)
         if past_key_value is not None:
             if self.layer_idx is None:
                 raise ValueError(
@@ -733,6 +734,7 @@ class JetMoEBlock(nn.Module):
         """
         super().__init__()
         self.input_layernorm = JetMoERMSNorm(config.hidden_size)
+     
         self.self_attention = JETMOE_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
         self.post_attention_layernorm = JetMoERMSNorm(config.hidden_size)
 
@@ -958,8 +960,8 @@ class JetMoEModel(JetMoEPreTrainedModel):
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList([JetMoEBlock(config, layer_idx) for layer_idx in range(config.num_hidden_layers)])
-        self._attn_implementation = "eager"
-        
+        self.config = config
+        self._attn_implementation = config._attn_implementation
         self.norm = JetMoERMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False

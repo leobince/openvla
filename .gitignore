@@ -147,3 +147,7 @@ dmypy.json
 # Caches and Datasets
 cache/
 data/
+
+scripts/
+runs/
+vla-scripts/

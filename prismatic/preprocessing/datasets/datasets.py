@@ -87,7 +87,9 @@ class AlignDataset(Dataset[Dict[str, torch.Tensor]]):
             pixel_values = self.image_transform(Image.open(self.image_dir / image_path).convert("RGB"))
         except:
             labels = [IGNORE_INDEX for _ in labels]
-            return dict(pixel_values=None, input_ids=input_ids, labels=labels)
+            pixel_values = self.image_transform(Image.new('RGB', (224, 224), color = (0, 0, 0)))
+            pixel_values = torch.zeros_like(pixel_values)
+            return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels)
         return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels)
 
     def get_modality_lengths(self, n_image_patches: int) -> List[Tuple[bool, int]]:
@@ -187,7 +189,9 @@ class FinetuneDataset(Dataset[Dict[str, torch.Tensor]]):
             except:
                 for i in range(0, len(labels)):
                     labels[i] = IGNORE_INDEX
-                return dict(pixel_values=None, input_ids=input_ids, labels=labels)
+                pixel_values = self.image_transform(Image.new('RGB', (224, 224), color = (0, 0, 0)))
+                pixel_values = torch.zeros_like(pixel_values)
+                return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels)
             return dict(pixel_values=pixel_values, input_ids=input_ids, labels=labels)
 
         else:

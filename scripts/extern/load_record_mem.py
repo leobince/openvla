@@ -124,6 +124,23 @@ class PretrainConfig:
 
     # fmt: on
 
+import subprocess
+
+def log_nvidia_smi(log_file_path):
+    # 执行 nvidia-smi 命令并捕获输出
+    result = subprocess.run(['nvidia-smi'], capture_output=True, text=True)
+    
+    # 获取命令的输出
+    output = result.stdout
+    
+    # 将输出写入文件
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(output)
+
+# 示例调用
+log_file_path = '/mnt/csp/mmvision/home/lwh/openvla/runs/llama2.txt'
+
+import time
 
 @draccus.wrap()
 def pretrain(cfg: PretrainConfig) -> None:
@@ -171,7 +188,9 @@ def pretrain(cfg: PretrainConfig) -> None:
     llm_backbone, tokenizer = get_llm_backbone_and_tokenizer(
         cfg.model.llm_backbone_id, llm_max_length=cfg.model.llm_max_length, hf_token=hf_token, debug = cfg.debug, inference_mode=cfg.inference_mode, llm_load_weight= cfg.llm_load_weight
     )
-    
+    time.sleep(10)
+    if overwatch.is_rank_zero():
+        log_nvidia_smi(log_file_path)
     # 生成一个随机数
     # Create VLM => wraps `vision_backbone` and `llm`
     overwatch.info(f"Instantiating PrismaticVLM `{model_id}` for Training Stage = `{cfg.stage}`")
@@ -191,7 +210,9 @@ def pretrain(cfg: PretrainConfig) -> None:
     # Load Weights from Checkpoint (depends on stage, config)
     overwatch.info(f"Invoking `VLM.load_checkpoint()` for `{model_id}` => Training Stage: `{cfg.stage}`")
     vlm.load_from_checkpoint(cfg.stage, run_dir, pretrained_checkpoint=cfg.pretrained_checkpoint, continue_from_checkpoint=cfg.continue_from_checkpoint)
-
+    time.sleep(10)
+    if overwatch.is_rank_zero():
+        log_nvidia_smi(log_file_path)
     # Get Dataset for Specified Stage
     overwatch.info(f"Creating Dataset `{cfg.dataset.dataset_id}` => Stage: `{cfg.stage}`")
     train_dataset, collator = get_dataset_and_collator(
@@ -227,30 +248,10 @@ def pretrain(cfg: PretrainConfig) -> None:
         worker_init_fn=worker_init_fn,
     )
     train_strategy.run_setup(run_dir=run_dir, n_train_examples=len(train_dataset))
-
-    # Create Metrics =>> Handles on the fly tracking, logging to specified trackers (e.g., JSONL, Weights & Biases)
-    overwatch.info(f"Creating Metrics with Active Trackers => `{cfg.trackers}`")
-    metrics = Metrics(
-        cfg.trackers,
-        cfg.run_id,
-        run_dir,
-        draccus.encode(cfg),
-        cfg.stage,
-        wandb_project=cfg.wandb_project,
-        wandb_entity=cfg.wandb_entity,
-        grad_accumulation_steps=train_strategy.grad_accumulation_steps,
-    )
-
-    # Run Training
-    overwatch.info("Starting Training Loop")
-    train_strategy.run_training(train_dataset, collator, metrics, stage=cfg.stage, seed=cfg.seed, continue_step=cfg.continue_step, tensorboard_writer=writer)
-
-    # Finalize
-    overwatch.info("Done with Training =>> Finalizing Metrics")
-    metrics.finalize()
-
-    # And... we're done!
-    overwatch.info("... and that's all, folks!")
+    time.sleep(10)
+    if overwatch.is_rank_zero():
+        log_nvidia_smi(log_file_path)
+    
     dist.barrier()
     dist.destroy_process_group()
 

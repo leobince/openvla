@@ -111,6 +111,9 @@ class PrismaticVLM(VLM):
             self.projector = FusedMLPProjector(vision_backbone.embed_dim, llm_backbone.embed_dim)
         elif arch_specifier.endswith("gelu-mlp"):
             self.projector = MLPProjector(vision_backbone.embed_dim, llm_backbone.embed_dim)
+        elif arch_specifier.endswith("pr"):
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.projector = PRProjector(vision_backbone.embed_dim, llm_backbone.embed_dim, device=device)
         else:
             raise ValueError(f"PrismaticVLM with `{arch_specifier = }` is not supported!")
 
@@ -716,6 +719,7 @@ class PrismaticVLM(VLM):
         autocast_dtype = self.llm_backbone.half_precision_dtype
         with torch.autocast("cuda", dtype=autocast_dtype, enabled=self.enable_mixed_precision_training):
             # fmt: off
+            self.dtype = autocast_dtype
             generated_ids = super().generate(
                 input_ids=input_ids,            # Shape: [1, seq]
                 pixel_values=pixel_values,      # Shape: [1, 3, res, res] or Dict[str, Shape[1, 3, res, res]]

@@ -28,6 +28,9 @@ GEMMA2_MODELS = {
     
     "gemma2-2b":{
         "llm_family": "gemma", "llm_cls": Gemma2ForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/gemma2_2b/models--google--gemma-2-2b/snapshots/c5ebcd40d208330abc697524c919956e692655cf"
+    },
+    "gemma2-2b-it":{
+        "llm_family": "gemma", "llm_cls": Gemma2ForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/gemma2-2b-it/models--google--gemma-2-2b-it/snapshots/e48216d9004e7fd70bc4fdfdc5b7cc3349f8e619"
     }
 }
 # fmt: on
@@ -42,6 +45,7 @@ class Gemma2LLMBackbone(HFCausalLLMBackbone):
         inference_mode: bool = False,
         use_flash_attention_2: bool = True,
         debug = False,
+        llm_load_weight: bool = True
   
     ) -> None:
         super().__init__(
@@ -50,7 +54,7 @@ class Gemma2LLMBackbone(HFCausalLLMBackbone):
             hf_token=hf_token,
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
-        
+            llm_load_weight=llm_load_weight,
             **GEMMA2_MODELS[llm_backbone_id],
         )
 

@@ -19,37 +19,22 @@ from prismatic.models.backbones.llm.prompting import (
     VicunaV15ChatPromptBuilder,
 )
 
-from ..gemmamoe_project import GemmaMoEForCausalLM
-from ..gemmamoe_project.modeling_gemmamoe import GemmaMoEBlock
-'''
-import sys
-import os
+from transformers.models.gemma.modeling_gemma import GemmaDecoderLayer
 
-# 获取当前文件的目录
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# 获取上一级目录
-parent_dir = os.path.dirname(current_dir)
-# 将上一级目录添加到sys.path
-sys.path.insert(0, parent_dir)
-
-# 现在可以导入file1.py了
-from folder1 import file1
-'''
-
+from transformers import GemmaForCausalLM, GemmaConfig
 # Registry =>> Support LLaMa-2 Models (from HF Transformers)
 # fmt: off
-GemmamoeModel = {
-    # === Pure Meta LLaMa-2 (non-instruct/chat-tuned) Models ===
-    "gemmamoe": {
-        "llm_family": "gemmamoe", "llm_cls": GemmaMoEForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/gemmamoe"
-    },
-
+Gemma_MODELS = {
     
+    "gemma-2b":{
+        "llm_family": "gemma", "llm_cls": GemmaForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/gemma-2b/models--google--gemma-2b/snapshots/68e273d91b1d6ea57c9e6024c4f887832f7b43fa"
+    },
+   
 }
 # fmt: on
 
 
-class GemmamoeBackbone(HFCausalLLMBackbone):
+class GemmaLLMBackbone(HFCausalLLMBackbone):
     def __init__(
         self,
         llm_backbone_id: str,
@@ -59,7 +44,7 @@ class GemmamoeBackbone(HFCausalLLMBackbone):
         use_flash_attention_2: bool = True,
         debug = False,
         llm_load_weight: bool = True
-     
+  
     ) -> None:
         super().__init__(
             llm_backbone_id,
@@ -67,9 +52,8 @@ class GemmamoeBackbone(HFCausalLLMBackbone):
             hf_token=hf_token,
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
-            debug = debug,
-            llm_load_weight = llm_load_weight,
-            **GemmamoeModel[llm_backbone_id],
+            llm_load_weight=llm_load_weight,
+            **Gemma_MODELS[llm_backbone_id],
         )
 
         # [Special Case] LLaMa-2 PAD Token Handling --> for clarity, we add an extra token (and resize)
@@ -79,32 +63,26 @@ class GemmamoeBackbone(HFCausalLLMBackbone):
 
     @property
     def prompt_builder_fn(self) -> Type[PromptBuilder]:
-
+        # if self.identifier.startswith("llama2-") and self.identifier.endswith("-pure"):
         return PurePromptBuilder
-        '''
-        if self.identifier.startswith("llama2-") and self.identifier.endswith("-pure"):
-            return PurePromptBuilder
 
-        elif self.identifier.startswith("llama2-") and self.identifier.endswith("-chat"):
-            return LLaMa2ChatPromptBuilder
+        # elif self.identifier.startswith("llama2-") and self.identifier.endswith("-chat"):
+            # return LLaMa2ChatPromptBuilder
 
-        elif self.identifier.startswith("vicuna"):
-            return VicunaV15ChatPromptBuilder
+        # elif self.identifier.startswith("vicuna"):
+            # return VicunaV15ChatPromptBuilder
 
-        raise ValueError(f"No PromptBuilder defined for LLM Backbone `{self.identifier}`")
-        '''
+        # raise ValueError(f"No PromptBuilder defined for LLM Backbone `{self.identifier}`")
 
     @property
     def transformer_layer_cls(self) -> Type[nn.Module]:
-        return GemmaMoEBlock
+        return GemmaDecoderLayer
 
     @property
     def half_precision_dtype(self) -> torch.dtype:
-        """LLaMa-2 was trained in BF16; see https://huggingface.co/docs/transformers/main/model_doc/llama2."""
+
         return torch.bfloat16
 
     @property
     def last_layer_finetune_modules(self) -> Sequence[nn.Module]:
         return (self.llm.model.embed_tokens, self.llm.model.layers[-1], self.llm.lm_head)
-
-

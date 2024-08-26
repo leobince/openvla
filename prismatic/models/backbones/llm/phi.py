@@ -4,7 +4,7 @@ phi.py
 Class definition for all LLMs derived from PhiForCausalLM.
 """
 
-from typing import Optional, Type
+from typing import Optional, Type, Sequence
 
 import torch
 from torch import nn as nn
@@ -19,7 +19,7 @@ from prismatic.models.backbones.llm.prompting import PhiPromptBuilder, PromptBui
 PHI_MODELS = {
     # === Phi-2 ===
     "phi-2-3b": {
-        "llm_family": "phi", "llm_cls": PhiForCausalLM, "hf_hub_path": "microsoft/phi-2"
+        "llm_family": "phi", "llm_cls": PhiForCausalLM, "hf_hub_path": "/mnt/csp/mmvision/home/lwh/phi2/models--microsoft--phi-2/snapshots/ef382358ec9e382308935a992d908de099b64c23"
     }
 }
 # fmt: on
@@ -33,6 +33,8 @@ class PhiLLMBackbone(HFCausalLLMBackbone):
         hf_token: Optional[str] = None,
         inference_mode: bool = False,
         use_flash_attention_2: bool = True,
+        debug = False,
+        llm_load_weight: bool = True
     ) -> None:
         super().__init__(
             llm_backbone_id,
@@ -40,6 +42,7 @@ class PhiLLMBackbone(HFCausalLLMBackbone):
             hf_token=hf_token,
             inference_mode=inference_mode,
             use_flash_attention_2=use_flash_attention_2,
+            llm_load_weight=llm_load_weight
             **PHI_MODELS[llm_backbone_id],
         )
 
@@ -62,3 +65,7 @@ class PhiLLMBackbone(HFCausalLLMBackbone):
     @property
     def half_precision_dtype(self) -> torch.dtype:
         return torch.bfloat16
+
+    @property
+    def last_layer_finetune_modules(self) -> Sequence[nn.Module]:
+        return (self.llm.model.embed_tokens, self.llm.model.layers[-1], self.llm.lm_head)
